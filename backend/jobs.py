@@ -6,10 +6,13 @@ cost breakdown + PJL bundle ready for the press.
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import secrets
+import shutil
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from . import impose, preflight, printer
@@ -133,3 +136,96 @@ def run_job(
 def _save_job(job: Job) -> None:
     d = job_dir(job.job_id)
     (d / "job.json").write_text(json.dumps(asdict(job), indent=2))
+
+
+# ───────────────────────── Retention + audit ─────────────────────────
+
+
+def _iter_job_dirs() -> list[Path]:
+    """All real job directories under settings.jobs_dir.
+
+    Skips uploads/ and any underscore-prefixed scratch dirs.
+    """
+    if not settings.jobs_dir.exists():
+        return []
+    out: list[Path] = []
+    for d in settings.jobs_dir.iterdir():
+        if not d.is_dir() or d.name.startswith("_") or d.name == "uploads":
+            continue
+        if (d / "job.json").exists():
+            out.append(d)
+    return out
+
+
+def purge_old_jobs(days: int | None = None) -> dict[str, int]:
+    """Delete job directories older than `days` based on job.json created_at.
+
+    Falls back to filesystem mtime if created_at is missing/malformed. Returns
+    a count summary; safe to call on app startup. days=0 disables.
+    """
+    cutoff_days = settings.purge_jobs_after_days if days is None else days
+    if cutoff_days <= 0:
+        return {"checked": 0, "purged": 0, "skipped": 0}
+
+    cutoff = datetime.utcnow() - timedelta(days=cutoff_days)
+    checked = purged = skipped = 0
+    for d in _iter_job_dirs():
+        checked += 1
+        try:
+            data = json.loads((d / "job.json").read_text())
+            created = datetime.fromisoformat(data.get("created_at", ""))
+        except (json.JSONDecodeError, ValueError, OSError):
+            try:
+                created = datetime.utcfromtimestamp(d.stat().st_mtime)
+            except OSError:
+                skipped += 1
+                continue
+        if created < cutoff:
+            try:
+                shutil.rmtree(d)
+                purged += 1
+            except OSError:
+                skipped += 1
+    return {"checked": checked, "purged": purged, "skipped": skipped}
+
+
+AUDIT_FIELDS = (
+    "created_at",
+    "job_id",
+    "workflow",
+    "preset_key",
+    "stock_code",
+    "quantity",
+    "sides",
+    "sheets",
+    "paper_cost",
+    "click_cost",
+    "total_cost",
+    "status",
+)
+
+
+def export_audit_csv(start: str | None = None, end: str | None = None) -> str:
+    """CSV of every job in the date range. ISO date strings (YYYY-MM-DD)
+    inclusive. Empty range = all jobs. Sorted oldest -> newest for accounting.
+    """
+    rows: list[dict] = []
+    for d in _iter_job_dirs():
+        try:
+            data = json.loads((d / "job.json").read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        created = data.get("created_at") or ""
+        if start and created and created[:10] < start:
+            continue
+        if end and created and created[:10] > end:
+            continue
+        rows.append(data)
+    rows.sort(key=lambda r: r.get("created_at") or "")
+
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=AUDIT_FIELDS, extrasaction="ignore")
+    writer.writeheader()
+    for r in rows:
+        writer.writerow({k: r.get(k, "") for k in AUDIT_FIELDS})
+    return buf.getvalue()

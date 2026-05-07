@@ -116,6 +116,14 @@ export const api = {
 
   imposedPdfUrl: (id: string) => `/api/job/${id}/imposed.pdf`,
   thumbUrl: (id: string) => `/api/job/${id}/thumb.png`,
+
+  auditCsvUrl: (start?: string, end?: string) => {
+    const params = new URLSearchParams();
+    if (start) params.set("start", start);
+    if (end) params.set("end", end);
+    const qs = params.toString();
+    return `/api/jobs/audit.csv${qs ? `?${qs}` : ""}`;
+  },
 };
 
 export { ApiError };

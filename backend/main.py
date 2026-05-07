@@ -26,7 +26,9 @@ Auth-gated /api/* surface used by the React frontend:
 from __future__ import annotations
 
 import json
+import logging
 import shutil
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
@@ -51,7 +53,28 @@ from . import (
 )
 from .settings import settings
 
-app = FastAPI(title="True Color Press Console", version="0.2.0")
+logger = logging.getLogger("press-console")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # On startup: purge job dirs older than settings.purge_jobs_after_days.
+    # 0 disables; misconfig should not crash boot.
+    try:
+        result = jobs.purge_old_jobs()
+        if result["purged"]:
+            logger.info(
+                "Purged %d job dir(s) older than %d days (%d checked)",
+                result["purged"],
+                settings.purge_jobs_after_days,
+                result["checked"],
+            )
+    except Exception as e:  # noqa: BLE001 — never let purge crash boot
+        logger.warning("Job purge failed at startup: %s", e)
+    yield
+
+
+app = FastAPI(title="True Color Press Console", version="0.2.0", lifespan=lifespan)
 
 STATIC_DIR = settings.repo_root / "frontend" / "dist"
 LOGIN_HTML = """<!doctype html>
@@ -344,6 +367,38 @@ def get_thumb(job_id: str, user: str = Depends(auth.current_user)):
     except Exception as e:
         raise HTTPException(500, f"thumbnail render failed: {e}")
     return FileResponse(out, media_type="image/png")
+
+
+@app.get("/api/jobs/audit.csv")
+def export_audit_csv(
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    user: str = Depends(auth.current_user),
+):
+    """CSV download of every job in the range. Inclusive YYYY-MM-DD bounds.
+    Empty params = full history. Sorted oldest -> newest for accounting use.
+    """
+    csv_text = jobs.export_audit_csv(start=start, end=end)
+    fname_parts = ["press-audit"]
+    if start:
+        fname_parts.append(start)
+    if end:
+        fname_parts.append(end)
+    fname = "-".join(fname_parts) + ".csv"
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+@app.post("/api/admin/purge-old-jobs")
+def admin_purge_jobs(
+    days: Optional[int] = None,
+    user: str = Depends(auth.current_user),
+):
+    """Manual purge trigger. Defaults to settings.purge_jobs_after_days."""
+    return jobs.purge_old_jobs(days=days)
 
 
 @app.post("/api/job/{job_id}/reprint")

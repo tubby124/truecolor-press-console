@@ -34,6 +34,10 @@ export function JobHistory() {
 
   if (!showHistory) return null;
 
+  // Default range: this calendar year. Operator can clear or change for ad-hoc.
+  const yearStart = `${new Date().getFullYear()}-01-01`;
+  const todayIso = new Date().toISOString().slice(0, 10);
+
   return (
     <div className="modal-backdrop" onClick={() => setShowHistory(false)}>
       <div className="modal" style={{ minWidth: 720, width: 840 }} onClick={(e) => e.stopPropagation()}>
@@ -91,6 +95,22 @@ export function JobHistory() {
         )}
 
         <div className="modal-actions">
+          <a
+            className="cta secondary"
+            href={api.auditCsvUrl(yearStart, todayIso)}
+            download
+            title={`Download every job from ${yearStart} to ${todayIso} as CSV (Wave / accounting)`}
+          >
+            Export CSV ({yearStart.slice(0, 4)})
+          </a>
+          <a
+            className="cta secondary"
+            href={api.auditCsvUrl()}
+            download
+            title="Download every job in history as CSV"
+          >
+            Export all
+          </a>
           <button className="cta secondary" type="button" onClick={() => setShowHistory(false)}>
             Close
           </button>

@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     bind_host: str = "127.0.0.1"
     bind_port: int = 5273
 
+    # Job retention. 0 disables purge. Walks settings.jobs_dir on startup.
+    purge_jobs_after_days: int = 30
+
 
 settings = Settings()
 settings.jobs_dir.mkdir(parents=True, exist_ok=True)
