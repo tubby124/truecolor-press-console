@@ -103,7 +103,7 @@ export function InspectCard() {
       </div>
 
       <div className="inspect-card">
-        <div className="card">
+        <div className="card" data-tour="recommendation">
           <h3>Recommendation</h3>
 
           {result.detected ? (

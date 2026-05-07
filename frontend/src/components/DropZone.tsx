@@ -136,6 +136,7 @@ export function DropZone() {
 
   return (
     <div
+      data-tour="dropzone"
       className={`dropzone ${over ? "over" : ""} ${stage.kind === "inspecting" ? "busy" : ""}`}
       onClick={() => fileRef.current?.click()}
       onDragEnter={() => setOver(true)}

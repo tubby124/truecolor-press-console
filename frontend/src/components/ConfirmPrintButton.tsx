@@ -91,7 +91,14 @@ export function ConfirmPrintButton() {
 
   return (
     <>
-      <button className="cta" type="button" onClick={clickHandler} disabled={disabled} title="⌘ + Enter">
+      <button
+        data-tour="print-button"
+        className="cta"
+        type="button"
+        onClick={clickHandler}
+        disabled={disabled}
+        title="⌘ + Enter"
+      >
         {disabled
           ? blocking
             ? "Fix blockers above to print"

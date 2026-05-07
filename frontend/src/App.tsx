@@ -4,6 +4,7 @@ import { HardwareGateBanner, PrinterStatusBanner } from "./components/Banners";
 import { BatchCard, BatchSubmittingScreen } from "./components/BatchCard";
 import { BatchDoneScreen } from "./components/BatchDoneScreen";
 import { DropZone } from "./components/DropZone";
+import { FirstRunTour } from "./components/FirstRunTour";
 import { FirstRunTrayWizard } from "./components/FirstRunTrayWizard";
 import { ImposedPreview, SubmittingScreen } from "./components/ImposedPreview";
 import { InspectCard } from "./components/InspectCard";
@@ -115,6 +116,7 @@ export default function App() {
 
       <JobHistory />
       <Toasts />
+      <FirstRunTour />
     </div>
   );
 }
