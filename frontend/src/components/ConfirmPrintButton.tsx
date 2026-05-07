@@ -11,7 +11,7 @@ export function ConfirmPrintButton() {
   const trays = useStore((s) => s.trays);
   const setTrays = useStore((s) => s.setTrays);
   const pushToast = useStore((s) => s.pushToast);
-  const [confirming, setConfirming] = useState<null | "qty" | "tray">(null);
+  const [confirming, setConfirming] = useState<null | "qty" | "tray" | "load">(null);
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [pickedTray, setPickedTray] = useState<TrayKey>("T1");
 
@@ -25,9 +25,12 @@ export function ConfirmPrintButton() {
   const trayMatch =
     !trays?.configured ||
     Object.values(trays.trays).some((t) => t.stock_code === stage.stockCode);
-  const disabled = blocking || !trayMatch;
+  // Print is only blocked by hard preflight blockers. Tray mismatch now opens
+  // a load-confirmation modal instead of disabling the button.
+  const disabled = blocking;
   const stock = stocks.find((s) => s.code === stage.stockCode);
   const recommendedTray = (stock?.default_tray as TrayKey | undefined) ?? "T1";
+  const stockLabel = (stock?.friendly_name || stock?.name) ?? stage.stockCode;
 
   async function send() {
     if (stage.kind !== "inspected") return;
@@ -60,11 +63,38 @@ export function ConfirmPrintButton() {
 
   function clickHandler() {
     if (stage.kind !== "inspected") return;
+    if (!trayMatch && trays?.configured) {
+      setPickedTray(recommendedTray);
+      setConfirming("load");
+      return;
+    }
     if (stage.quantity > 100) {
       setConfirming("qty");
       return;
     }
     void send();
+  }
+
+  async function confirmLoadAndPrint() {
+    if (stage.kind !== "inspected") return;
+    try {
+      const next = await api.setTray(recommendedTray, {
+        stock_code: stage.stockCode,
+        paper_size: stock?.parent_sheet ?? null,
+        level: "full",
+      });
+      setTrays(next);
+      setConfirming(null);
+      pushToast("success", `Marked ${recommendedTray} loaded with ${stockLabel}.`);
+      // Chain straight into the print so the operator only confirms once.
+      if (stage.quantity > 100) {
+        setConfirming("qty");
+      } else {
+        void send();
+      }
+    } catch (e) {
+      pushToast("error", `Couldn't update tray: ${e instanceof Error ? e.message : e}`);
+    }
   }
 
   function openTrayModal() {
@@ -99,11 +129,7 @@ export function ConfirmPrintButton() {
         disabled={disabled}
         title="⌘ + Enter"
       >
-        {disabled
-          ? blocking
-            ? "Fix blockers above to print"
-            : "Load matching paper to print"
-          : `Looks good — print ${stage.quantity}`}
+        {blocking ? "Fix blockers above to print" : `Looks good — print ${stage.quantity}`}
       </button>
 
       {!blocking && !trayMatch && trays?.configured && (
@@ -111,9 +137,10 @@ export function ConfirmPrintButton() {
           className="cta secondary"
           type="button"
           onClick={openTrayModal}
-          title={`Mark a tray as loaded with ${(stock?.friendly_name || stock?.name) ?? stage.stockCode}`}
+          title="Pick a different tray than the recommended one"
+          style={{ fontSize: 13 }}
         >
-          Just loaded it
+          Different tray…
         </button>
       )}
 
@@ -131,6 +158,43 @@ export function ConfirmPrintButton() {
               </button>
               <button className="cta" type="button" onClick={send}>
                 Yes, print {stage.quantity}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirming === "load" && stage.kind === "inspected" && (
+        <div className="modal-backdrop" onClick={() => setConfirming(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Load paper, then tap when done</h2>
+            <p style={{ fontSize: 16, lineHeight: 1.55 }}>
+              Put <strong>{stockLabel}</strong> in <strong>{recommendedTray}</strong>, then tap the green button below.
+            </p>
+            <p style={{ color: "var(--muted)", fontSize: 13 }}>
+              The press needs to know which tray has the right paper before it'll print this job.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="cta secondary"
+                type="button"
+                onClick={() => {
+                  setConfirming("tray");
+                }}
+              >
+                Different tray…
+              </button>
+              <span style={{ flex: 1 }} />
+              <button className="cta secondary" type="button" onClick={() => setConfirming(null)}>
+                Cancel
+              </button>
+              <button
+                className="cta"
+                type="button"
+                onClick={confirmLoadAndPrint}
+                style={{ fontSize: 16, padding: "10px 18px" }}
+              >
+                Done — print now
               </button>
             </div>
           </div>

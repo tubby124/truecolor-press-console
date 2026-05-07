@@ -12,6 +12,7 @@ export function TrayStatusBar() {
   const pushToast = useStore((s) => s.pushToast);
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [editing, setEditing] = useState<TrayKey | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     api.stocks().then(setStocks).catch((e) => pushToast("error", `Couldn't load paper catalog: ${e.message}`));
@@ -19,6 +20,29 @@ export function TrayStatusBar() {
   }, [pushToast, setTrays]);
 
   const state: TrayState | null = trays?.trays ?? null;
+  const loadedCount = state ? Object.values(state).filter((t) => t.stock_code).length : 0;
+  const totalTrays = TRAY_KEYS.length;
+
+  if (!expanded) {
+    return (
+      <div
+        className="tray-bar collapsed"
+        role="region"
+        aria-label="Press tray status"
+        style={{ display: "flex", justifyContent: "flex-end", padding: "6px 12px" }}
+      >
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => setExpanded(true)}
+          title="Show what paper is loaded in each tray"
+          style={{ fontSize: 12, color: "var(--muted)" }}
+        >
+          Trays · {loadedCount} of {totalTrays} loaded
+        </button>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -58,6 +82,15 @@ export function TrayStatusBar() {
             </button>
           );
         })}
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => setExpanded(false)}
+          title="Hide tray bar"
+          style={{ fontSize: 12, color: "var(--muted)", marginLeft: "auto" }}
+        >
+          Hide
+        </button>
       </div>
 
       {editing && (

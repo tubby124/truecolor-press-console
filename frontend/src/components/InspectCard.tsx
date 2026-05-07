@@ -242,11 +242,10 @@ export function InspectCard() {
           <PreflightFindings findings={result.findings} renderAction={renderFindingAction} />
 
           {trays?.configured && !trayMatch && (
-            <div className="finding warn">
-              <span className="icon">⚠</span>
+            <div className="finding info">
+              <span className="icon">📄</span>
               <div>
-                <strong>{stock ? stockLabel(stock) : stockCode}</strong> isn't loaded in any tray right now. Load
-                it and update the tray status (top bar), or pick a different paper.
+                When you tap print, we'll ask you to put <strong>{stock ? stockLabel(stock) : stockCode}</strong> in the recommended tray.
               </div>
             </div>
           )}
