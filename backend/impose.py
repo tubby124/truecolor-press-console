@@ -81,6 +81,7 @@ PIECES = {
     "postcard_4x6": PieceSpec("Postcard 4×6", 6.0, 4.0),
     "postcard_5x7": PieceSpec("Postcard 5×7", 7.0, 5.0),
     "flyer_half": PieceSpec("Half-Letter Flyer", 5.5, 8.5),
+    "flyer_half_l": PieceSpec("Half-Letter Flyer L", 8.5, 5.5, bleed_in=0.0),
     "flyer_letter": PieceSpec("Letter Flyer", 8.5, 11.0, bleed_in=0.0),
     "trifold_letter": PieceSpec("Tri-fold Letter", 11.0, 8.5, bleed_in=0.0),
     "bifold_11x17": PieceSpec("Bi-fold 11×17", 17.0, 11.0, bleed_in=0.0),
@@ -128,6 +129,18 @@ PRESETS: dict[str, GridLayout] = {
     "bc_8up_letter": GridLayout(
         SHEETS["letter"], PIECES["business_card"],
         cols=2, rows=4, gutter_in=0.0, margin_in=0.375,
+    ),
+    "bc_10up_legal": GridLayout(
+        SHEETS["legal"], PIECES["business_card"],
+        cols=2, rows=5, gutter_in=0.0, margin_in=0.5,
+    ),
+    "bc_21up_sra3": GridLayout(
+        SHEETS["sra3"], PIECES["business_card"],
+        cols=3, rows=7, gutter_in=0.0, margin_in=0.375,
+    ),
+    "flyer_half_2up_letter": GridLayout(
+        SHEETS["letter"], PIECES["flyer_half_l"],
+        cols=1, rows=2, gutter_in=0.0, margin_in=0.0,
     ),
     "pc_3x4_12up_18x12": GridLayout(
         SHEETS["18x12"], PIECES["postcard_3x4"],
