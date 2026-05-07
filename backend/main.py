@@ -161,6 +161,7 @@ def list_presets(user: str = Depends(auth.current_user)):
             "total": l.total_pieces,
             "bleed_in": l.piece.bleed_in,
             "fits": l.fits(),
+            "friendly_label": impose.FRIENDLY_PRESET_LABELS.get(k, ""),
         }
         for k, l in impose.PRESETS.items()
     ]
@@ -173,6 +174,7 @@ def list_stocks(user: str = Depends(auth.current_user)):
         {
             "code": s.code,
             "name": s.name,
+            "friendly_name": s.friendly_name or s.name,
             "finish": s.finish,
             "weight": s.weight,
             "cost_per_unit": s.cost_per_unit,

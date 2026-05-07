@@ -41,6 +41,13 @@ export function InspectCard() {
   const updatePreset = (k: string) => setStage({ ...stage, presetKey: k });
   const updateStock = (c: string) => setStage({ ...stage, stockCode: c });
 
+  const presetLabel = (p: Preset) =>
+    p.friendly_label && p.friendly_label.length > 0
+      ? p.friendly_label
+      : `${p.total}-up ${p.piece} on ${p.sheet}`;
+  const presetTechDetail = (p: Preset) => `${p.total}-up ${p.piece} on ${p.sheet}`;
+  const stockLabel = (s: Stock) => (s.friendly_name && s.friendly_name.length > 0 ? s.friendly_name : s.name);
+
   return (
     <div>
       <div className="section-head">
@@ -77,14 +84,14 @@ export function InspectCard() {
               {showCustomize ? (
                 <select value={presetKey} onChange={(e) => updatePreset(e.target.value)}>
                   {presets.map((p) => (
-                    <option key={p.key} value={p.key}>
-                      {p.total}-up {p.piece} on {p.sheet}
+                    <option key={p.key} value={p.key} title={presetTechDetail(p)}>
+                      {presetLabel(p)}
                     </option>
                   ))}
                 </select>
               ) : (
-                <span>
-                  {preset ? `${preset.total}-up ${preset.piece} on ${preset.sheet}` : "—"}
+                <span title={preset ? presetTechDetail(preset) : undefined}>
+                  {preset ? presetLabel(preset) : "—"}
                 </span>
               )}
             </div>
@@ -94,13 +101,15 @@ export function InspectCard() {
               {showCustomize ? (
                 <select value={stockCode} onChange={(e) => updateStock(e.target.value)}>
                   {stocks.map((s) => (
-                    <option key={s.code} value={s.code}>
-                      {s.name}
+                    <option key={s.code} value={s.code} title={`${s.name} · ${s.weight}`}>
+                      {stockLabel(s)}
                     </option>
                   ))}
                 </select>
               ) : (
-                <span>{stock?.name ?? stockCode}</span>
+                <span title={stock ? `${stock.name} · ${stock.weight}` : undefined}>
+                  {stock ? stockLabel(stock) : stockCode}
+                </span>
               )}
             </div>
 
@@ -191,7 +200,7 @@ export function InspectCard() {
             <div className="finding warn">
               <span className="icon">⚠</span>
               <div>
-                <strong>{stock?.name ?? stockCode}</strong> isn't loaded in any tray right now. Load
+                <strong>{stock ? stockLabel(stock) : stockCode}</strong> isn't loaded in any tray right now. Load
                 it and update the tray status (top bar), or pick a different paper.
               </div>
             </div>

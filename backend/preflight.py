@@ -123,12 +123,12 @@ def _check_image_dpi(pdf: pikepdf.Pdf) -> list[PreflightFinding]:
             severity: str
             if worst_dpi < 150:
                 severity = "warn"
-                msg = (f"Page {i}: photo at ~{int(worst_dpi)} DPI will look blurry/soft "
-                       "in print. Replace with a higher-resolution version.")
+                msg = (f"Page {i}: a photo on this page is low-resolution (~{int(worst_dpi)} dpi). "
+                       "It'll look blurry when printed. Swap in a sharper version of the photo if you can.")
             else:
                 severity = "warn"
-                msg = (f"Page {i}: photo at ~{int(worst_dpi)} DPI is below the 300 DPI "
-                       "print standard. Likely OK for drafts; not for premium output.")
+                msg = (f"Page {i}: a photo on this page is below the 300 dpi print standard "
+                       f"(~{int(worst_dpi)} dpi). Fine for a draft, soft for premium prints.")
             findings.append(PreflightFinding(severity, "low-dpi-image", msg, page=i))
     return findings
 
@@ -147,13 +147,20 @@ def _is_standard_14(base_font: str) -> bool:
 def run(pdf_path: Path, *, expect_bleed_in: float = 0.0) -> PreflightReport:
     report = PreflightReport(file=pdf_path)
     if not pdf_path.exists():
-        report.findings.append(PreflightFinding("block", "missing-file", f"{pdf_path} does not exist"))
+        report.findings.append(PreflightFinding(
+            "block", "missing-file",
+            f"We can't find the file we were checking. It may have been moved or deleted. "
+            f"Drop the file into the page again. (Path we looked at: {pdf_path})",
+        ))
         return report
 
     try:
         pdf = pikepdf.open(str(pdf_path))
     except pikepdf.PdfError as e:
-        report.findings.append(PreflightFinding("block", "corrupt-pdf", str(e)))
+        report.findings.append(PreflightFinding(
+            "block", "corrupt-pdf",
+            f"This file looks damaged and we can't open it. Re-export the PDF from your design tool and try again. (Technical detail: {e})",
+        ))
         return report
 
     with pdf:
@@ -170,15 +177,18 @@ def run(pdf_path: Path, *, expect_bleed_in: float = 0.0) -> PreflightReport:
             if len(unique) > 1:
                 report.findings.append(PreflightFinding(
                     "warn", "mixed-page-sizes",
-                    f"Pages have {len(unique)} different sizes — the press may jam or "
-                    "switch trays mid-job. Consider exporting one PDF per size.",
+                    f"This PDF has pages in {len(unique)} different sizes. The press may jam or "
+                    "switch trays mid-job. Save a separate PDF for each size.",
                 ))
 
         unembedded = _has_unembedded_fonts(pdf)
         if unembedded:
             report.findings.append(PreflightFinding(
                 "block", "fonts-not-embedded",
-                f"Fonts not embedded — would substitute as Courier on press: {', '.join(unembedded)}",
+                "Some fonts in this file aren't included in the PDF. They'll print as Courier "
+                "(plain typewriter font) instead of what you designed. Re-export the PDF from your "
+                "design tool with \"embed all fonts\" turned on. "
+                f"Affected fonts: {', '.join(unembedded)}",
             ))
 
         # DPI check on raster XObjects relative to their drawn size on the page.
@@ -193,7 +203,8 @@ def run(pdf_path: Path, *, expect_bleed_in: float = 0.0) -> PreflightReport:
                 if trim is None:
                     report.findings.append(PreflightFinding(
                         "warn", "no-trimbox",
-                        f"Page {i}: no /TrimBox set — cannot verify bleed mathematically",
+                        f"Page {i}: this PDF doesn't say where the cut line is, so we can't "
+                        "check the edges for bleed. We'll print it as-is.",
                         page=i,
                     ))
                     continue
@@ -206,7 +217,10 @@ def run(pdf_path: Path, *, expect_bleed_in: float = 0.0) -> PreflightReport:
                 if margin < bleed_pt - 1:
                     report.findings.append(PreflightFinding(
                         "warn", "insufficient-bleed",
-                        f"Page {i}: bleed {margin / 72:.3f}\" < required {expect_bleed_in:.3f}\"",
+                        f"Page {i}: your design might have white slivers at the edges after "
+                        f"trimming. We'd like {expect_bleed_in:.3f}\" of background extending past "
+                        f"the cut line; you have about {margin / 72:.3f}\". Want us to extend the "
+                        "background to fix it?",
                         page=i,
                     ))
 

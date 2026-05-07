@@ -50,11 +50,13 @@ export interface Preset {
   total: number;
   bleed_in: number;
   fits: boolean;
+  friendly_label?: string;
 }
 
 export interface Stock {
   code: string;
   name: string;
+  friendly_name?: string;
   finish: string;
   weight: string;
   cost_per_unit: number;

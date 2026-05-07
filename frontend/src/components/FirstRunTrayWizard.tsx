@@ -56,8 +56,8 @@ export function FirstRunTrayWizard({ onDone }: { onDone: () => void }) {
           >
             <option value="">— empty / not set —</option>
             {stocks.map((s) => (
-              <option key={s.code} value={s.code}>
-                {s.name} ({s.weight})
+              <option key={s.code} value={s.code} title={`${s.name} · ${s.weight}`}>
+                {s.friendly_name || s.name} ({s.weight})
               </option>
             ))}
           </select>

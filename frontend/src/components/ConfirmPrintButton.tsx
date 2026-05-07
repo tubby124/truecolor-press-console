@@ -83,7 +83,7 @@ export function ConfirmPrintButton() {
       });
       setTrays(next);
       setConfirming(null);
-      pushToast("success", `Marked ${pickedTray} loaded with ${stock?.name ?? stage.stockCode}.`);
+      pushToast("success", `Marked ${pickedTray} loaded with ${(stock?.friendly_name || stock?.name) ?? stage.stockCode}.`);
     } catch (e) {
       pushToast("error", `Couldn't update tray: ${e instanceof Error ? e.message : e}`);
     }
@@ -104,7 +104,7 @@ export function ConfirmPrintButton() {
           className="cta secondary"
           type="button"
           onClick={openTrayModal}
-          title={`Mark a tray as loaded with ${stock?.name ?? stage.stockCode}`}
+          title={`Mark a tray as loaded with ${(stock?.friendly_name || stock?.name) ?? stage.stockCode}`}
         >
           Just loaded it
         </button>
@@ -135,7 +135,7 @@ export function ConfirmPrintButton() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2>Mark tray as loaded</h2>
             <p>
-              Which tray did you put <strong>{stock?.name ?? stage.stockCode}</strong> in?
+              Which tray did you put <strong>{(stock?.friendly_name || stock?.name) ?? stage.stockCode}</strong> in?
               {recommendedTray && ` (${recommendedTray} is recommended for this stock.)`}
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "12px 0" }}>

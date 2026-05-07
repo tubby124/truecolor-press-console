@@ -108,8 +108,10 @@ export function BatchCard() {
           <div>
             <select value={presetKey} onChange={(e) => update("presetKey", e.target.value)}>
               {presets.map((p) => (
-                <option key={p.key} value={p.key}>
-                  {p.total}-up {p.piece} on {p.sheet}
+                <option key={p.key} value={p.key} title={`${p.total}-up ${p.piece} on ${p.sheet}`}>
+                  {p.friendly_label && p.friendly_label.length > 0
+                    ? p.friendly_label
+                    : `${p.total}-up ${p.piece} on ${p.sheet}`}
                 </option>
               ))}
             </select>
@@ -119,8 +121,8 @@ export function BatchCard() {
           <div>
             <select value={stockCode} onChange={(e) => update("stockCode", e.target.value)}>
               {stocks.map((s) => (
-                <option key={s.code} value={s.code}>
-                  {s.name}
+                <option key={s.code} value={s.code} title={`${s.name} · ${s.weight}`}>
+                  {s.friendly_name || s.name}
                 </option>
               ))}
             </select>

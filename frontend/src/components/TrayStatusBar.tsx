@@ -38,7 +38,7 @@ export function TrayStatusBar() {
               <span className="key">{k}</span>
               <span className="name">
                 <span className={`status-dot ${level}`} />
-                {stock ? stock.name : <em style={{ color: "var(--muted)" }}>not set</em>}
+                {stock ? (stock.friendly_name || stock.name) : <em style={{ color: "var(--muted)" }}>not set</em>}
               </span>
               <span style={{ fontSize: 11, color: "var(--muted)" }}>
                 {t?.paper_size ?? (stock ? stock.parent_sheet : "—")}

@@ -22,7 +22,7 @@ export const TILES: WorkflowTile[] = [
   {
     key: "business_card",
     label: "Business Cards",
-    hint: "21-up on 12×18 cardstock with crop marks",
+    hint: "Standard business cards — up to 21 cards from one sheet",
     presetKey: "bc_21up_12x18",
     defaultStock: "14pt-cs-gloss",
     defaultQty: 100,
@@ -33,7 +33,7 @@ export const TILES: WorkflowTile[] = [
   {
     key: "postcard_4x6",
     label: "Postcards 4×6",
-    hint: "4-up on 12×18 cardstock with crop marks",
+    hint: "4×6 postcards — 4 per sheet, cut apart after printing",
     presetKey: "pc_4x6_4up_18x12",
     defaultStock: "14pt-cs-gloss",
     defaultQty: 50,
@@ -44,7 +44,7 @@ export const TILES: WorkflowTile[] = [
   {
     key: "postcard_5x7",
     label: "Postcards 5×7",
-    hint: "4-up on 12×18 cardstock",
+    hint: "5×7 postcards — 4 per sheet, cut apart after printing",
     presetKey: "pc_5x7_4up_18x12",
     defaultStock: "14pt-cs-gloss",
     defaultQty: 50,
@@ -55,7 +55,7 @@ export const TILES: WorkflowTile[] = [
   {
     key: "flyer",
     label: "Letter Flyer",
-    hint: "1-up letter, 100lb gloss",
+    hint: "Single-page letter flyer on glossy paper",
     presetKey: "flyer_1up_letter",
     defaultStock: "100lb-gloss-text",
     defaultQty: 50,
@@ -66,7 +66,7 @@ export const TILES: WorkflowTile[] = [
   {
     key: "trifold",
     label: "Tri-fold Brochure",
-    hint: "Letter landscape, fold guides at 1/3 + 2/3",
+    hint: "Letter sheet folded into thirds — fold lines included",
     presetKey: "trifold_1up_letter",
     defaultStock: "80lb-gloss-text",
     defaultQty: 100,
@@ -77,7 +77,7 @@ export const TILES: WorkflowTile[] = [
   {
     key: "bifold",
     label: "Bi-fold Brochure",
-    hint: "11×17 sheet folded once → 8.5×11 4-page",
+    hint: "11×17 sheet folded once → 4-page letter-size brochure",
     presetKey: "bifold_1up_11x17",
     defaultStock: "80lb-gloss-text",
     defaultQty: 100,
@@ -88,7 +88,7 @@ export const TILES: WorkflowTile[] = [
   {
     key: "halffold",
     label: "Half-fold Card",
-    hint: "11×17 → 5.5×8.5 greeting card",
+    hint: "Greeting-card style — 11×17 sheet folded once",
     presetKey: "halffold_1up_letter",
     defaultStock: "100lb-gloss-text",
     defaultQty: 25,
@@ -99,7 +99,7 @@ export const TILES: WorkflowTile[] = [
   {
     key: "poster_letter",
     label: "Letter Poster",
-    hint: "1-up letter, premium gloss",
+    hint: "Letter-size poster on premium glossy paper",
     presetKey: "poster_1up_letter",
     defaultStock: "100lb-gloss-text",
     defaultQty: 1,
@@ -110,7 +110,7 @@ export const TILES: WorkflowTile[] = [
   {
     key: "poster_11x17",
     label: "11×17 Poster",
-    hint: "1-up tabloid, premium gloss",
+    hint: "11×17 poster on premium glossy paper",
     presetKey: "poster_1up_11x17",
     defaultStock: "100lb-gloss-text",
     defaultQty: 1,
@@ -123,14 +123,14 @@ export const TILES: WorkflowTile[] = [
   {
     key: "stapled_doc",
     label: "Stapled Document",
-    hint: "Multi-page + corner staple",
+    hint: "Multi-page document with a corner staple",
     presetKey: null,
     defaultStock: "24lb-bond",
     defaultQty: 1,
     defaultSides: 2,
     phase: "v2",
     hardwareGate:
-      "Stapler unit needs to be verified post-brownout by the Konica technician. Until then this workflow is disabled. See docs/HARDWARE-GATES.md gate 5.",
+      "The stapler still needs to be checked over by the Konica technician after the power surge. We've turned this off until that's done.",
     emoji: "📎",
   },
 
@@ -138,14 +138,14 @@ export const TILES: WorkflowTile[] = [
   {
     key: "booklet",
     label: "Saddle-Stitch Booklet",
-    hint: "11×17 sheets folded + stitched at spine",
+    hint: "Booklet stapled at the spine — 11×17 sheets folded in half",
     presetKey: null,
     defaultStock: "80lb-gloss-text",
     defaultQty: 1,
     defaultSides: 2,
     phase: "v3",
     hardwareGate:
-      "Booklet maker unit needs verification post-brownout. Imposition logic (page reorder + creep compensation) is also still on the v3 backlog.",
+      "The booklet maker still needs to be checked over by the technician, and the page-ordering logic is still being built. Disabled until both are ready.",
     emoji: "📖",
   },
 
@@ -153,14 +153,14 @@ export const TILES: WorkflowTile[] = [
   {
     key: "punched",
     label: "3-Hole Binder Doc",
-    hint: "Multi-page duplex + 3-hole punch",
+    hint: "Multi-page document with 3 binder holes punched on the side",
     presetKey: null,
     defaultStock: "24lb-bond",
     defaultQty: 1,
     defaultSides: 2,
     phase: "v4",
     hardwareGate:
-      "Hole-punch unit (PK-522) needs verification post-brownout. Workflow tile reserved for v4.",
+      "The hole-punch attachment still needs to be checked over by the technician. Disabled until that's done.",
     emoji: "📑",
   },
 ];

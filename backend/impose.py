@@ -190,6 +190,27 @@ FOLD_PRESET_MAP: dict[str, str] = {
 }
 
 
+# Operator-facing labels for each layout. The dropdown shows these instead of
+# the raw "21-up Business Card on 12x18" tech string. Keep the friendly label
+# focused on what the operator actually picks: the piece + how many fit.
+FRIENDLY_PRESET_LABELS: dict[str, str] = {
+    "bc_21up_12x18": "Business cards — 21 per sheet (standard)",
+    "bc_8up_letter": "Business cards — 8 per letter sheet",
+    "bc_10up_legal": "Business cards — 10 per legal sheet",
+    "bc_21up_sra3": "Business cards — 21 per SRA3 sheet",
+    "flyer_half_2up_letter": "Half-letter flyers — 2 per letter sheet",
+    "pc_3x4_12up_18x12": "Postcards 3×4 — 12 per sheet",
+    "pc_4x6_4up_18x12": "Postcards 4×6 — 4 per sheet",
+    "pc_5x7_4up_18x12": "Postcards 5×7 — 4 per sheet",
+    "flyer_1up_letter": "Letter flyer — 1 per sheet",
+    "trifold_1up_letter": "Tri-fold brochure — 1 per sheet",
+    "bifold_1up_11x17": "Bi-fold brochure — 1 per 11×17 sheet",
+    "halffold_1up_letter": "Half-fold card — 1 per sheet",
+    "poster_1up_letter": "Letter poster — 1 per sheet",
+    "poster_1up_11x17": "11×17 poster — 1 per sheet",
+}
+
+
 def fold_guide_pdf_ops(x: float, y: float, height: float) -> str:
     """Dashed vertical fold-guide line. Light grey, low priority — operator hint."""
     return (

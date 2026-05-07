@@ -33,12 +33,14 @@ class Stock:
     tags: tuple[str, ...]
     default_tray: str = "AUTO"
     default_paper_size: str = "P12X18"
+    friendly_name: str = ""  # operator-facing label; falls back to `name` if empty
 
 
 _DEFAULT_STOCKS: tuple[Stock, ...] = (
     Stock(
         code="14pt-cs-gloss",
         name="14pt Gloss Cover (Pacesetter)",
+        friendly_name="Thick glossy business card paper",
         finish="gloss",
         weight="14pt / 130# cover",
         cost_per_unit=0.336,
@@ -50,6 +52,7 @@ _DEFAULT_STOCKS: tuple[Stock, ...] = (
     Stock(
         code="80lb-gloss-text",
         name="80lb Gloss Text (Pacesetter)",
+        friendly_name="Glossy flyer / brochure paper (medium)",
         finish="gloss",
         weight="80lb text / 118gsm",
         cost_per_unit=0.110,
@@ -61,6 +64,7 @@ _DEFAULT_STOCKS: tuple[Stock, ...] = (
     Stock(
         code="100lb-gloss-text",
         name="100lb Gloss Text (premium)",
+        friendly_name="Premium glossy poster paper (heavy)",
         finish="gloss",
         weight="100lb text / 148gsm",
         cost_per_unit=0.150,
@@ -72,6 +76,7 @@ _DEFAULT_STOCKS: tuple[Stock, ...] = (
     Stock(
         code="24lb-bond",
         name="24lb Bond White",
+        friendly_name="Plain copy paper",
         finish="matte",
         weight="24lb bond / 90gsm",
         cost_per_unit=0.020,
@@ -105,6 +110,7 @@ def shop_stocks() -> tuple[Stock, ...]:
             out.append(replace(
                 s,
                 name=ov.get("name", s.name),
+                friendly_name=ov.get("friendly_name", s.friendly_name),
                 finish=ov.get("finish", s.finish),
                 weight=ov.get("weight", s.weight),
                 cost_per_unit=float(ov.get("cost_per_unit", s.cost_per_unit)),
@@ -122,6 +128,7 @@ def shop_stocks() -> tuple[Stock, ...]:
                 out.append(Stock(
                     code=ov["code"],
                     name=ov["name"],
+                    friendly_name=ov.get("friendly_name", ""),
                     finish=ov.get("finish", "matte"),
                     weight=ov.get("weight", ""),
                     cost_per_unit=float(ov.get("cost_per_unit", 0.0)),
