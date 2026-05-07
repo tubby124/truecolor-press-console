@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { HardwareGateBanner, PrinterStatusBanner } from "./components/Banners";
+import { BatchCard, BatchSubmittingScreen } from "./components/BatchCard";
+import { BatchDoneScreen } from "./components/BatchDoneScreen";
 import { DropZone } from "./components/DropZone";
 import { FirstRunTrayWizard } from "./components/FirstRunTrayWizard";
 import { ImposedPreview, SubmittingScreen } from "./components/ImposedPreview";
@@ -38,7 +40,12 @@ export default function App() {
       if (e.key === "Escape") {
         if (showHistory) {
           setShowHistory(false);
-        } else if (stage.kind === "inspected" || stage.kind === "done") {
+        } else if (
+          stage.kind === "inspected" ||
+          stage.kind === "done" ||
+          stage.kind === "batch_pending" ||
+          stage.kind === "batch_done"
+        ) {
           reset();
         }
       }
@@ -98,6 +105,12 @@ export default function App() {
         {stage.kind === "submitting" && <SubmittingScreen />}
 
         {stage.kind === "done" && <ImposedPreview />}
+
+        {stage.kind === "batch_pending" && <BatchCard />}
+
+        {stage.kind === "batch_submitting" && <BatchSubmittingScreen />}
+
+        {stage.kind === "batch_done" && <BatchDoneScreen />}
       </main>
 
       <JobHistory />

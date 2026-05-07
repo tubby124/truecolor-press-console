@@ -126,3 +126,9 @@ export interface Health {
   safe_print_mode: "dry" | "live" | string;
   version: string;
 }
+
+export interface BatchItem {
+  file: string;
+  job?: Job;
+  error?: string;
+}

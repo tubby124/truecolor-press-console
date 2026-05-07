@@ -3,7 +3,7 @@
 // pointer, etc.).
 
 import { create } from "zustand";
-import type { InspectResult, Job, TraysResponse } from "./types";
+import type { BatchItem, InspectResult, Job, TraysResponse } from "./types";
 
 export type Toast = { id: number; level: "info" | "warn" | "error" | "success"; text: string };
 
@@ -12,7 +12,10 @@ export type Stage =
   | { kind: "inspecting"; file: File }
   | { kind: "inspected"; file: File; result: InspectResult; quantity: number; sides: 1 | 2; stockCode: string; presetKey: string }
   | { kind: "submitting"; file: File }
-  | { kind: "done"; job: Job };
+  | { kind: "done"; job: Job }
+  | { kind: "batch_pending"; files: File[]; quantity: number; sides: 1 | 2; stockCode: string; presetKey: string }
+  | { kind: "batch_submitting"; files: File[] }
+  | { kind: "batch_done"; results: BatchItem[] };
 
 interface Store {
   trays: TraysResponse | null;

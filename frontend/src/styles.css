@@ -622,6 +622,61 @@ a {
 }
 .saved-delete:hover { color: var(--danger); background: var(--panel-2); }
 
+/* Batch file list (multi-file batch UI + results) */
+.batch-file-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.batch-file-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px;
+}
+.batch-file-row:last-child { border-bottom: 0; }
+.batch-file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.batch-file-size,
+.batch-file-meta {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.batch-file-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 12.5px;
+}
+.batch-file-link:hover { text-decoration: underline; }
+.batch-file-error {
+  color: var(--danger);
+  font-size: 12.5px;
+}
+.batch-file-remove {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.batch-file-remove:hover {
+  color: var(--danger);
+  background: var(--panel-2);
+}
+
 /* Tray editor specifics */
 .tray-editor-row {
   display: grid;

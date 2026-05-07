@@ -2,6 +2,7 @@
 // the built bundle from / in prod). 401 redirects to / so the login page renders.
 
 import type {
+  BatchItem,
   Health,
   InspectResult,
   Job,
@@ -89,6 +90,24 @@ export const api = {
     fd.append("quantity", String(params.quantity));
     fd.append("sides", String(params.sides));
     return request<Job>("/api/job", { method: "POST", body: fd });
+  },
+
+  submitBatch: (params: {
+    files: File[];
+    workflow: string;
+    preset_key: string;
+    stock_code: string;
+    quantity: number;
+    sides: number;
+  }) => {
+    const fd = new FormData();
+    for (const f of params.files) fd.append("files", f);
+    fd.append("workflow", params.workflow);
+    fd.append("preset_key", params.preset_key);
+    fd.append("stock_code", params.stock_code);
+    fd.append("quantity", String(params.quantity));
+    fd.append("sides", String(params.sides));
+    return request<BatchItem[]>("/api/batch", { method: "POST", body: fd });
   },
 
   jobs: (limit = 50) => request<JobSummary[]>(`/api/jobs?limit=${limit}`),

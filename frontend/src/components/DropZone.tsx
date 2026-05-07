@@ -17,17 +17,41 @@ export function DropZone() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
 
-  const handleFile = useCallback(
-    async (file: File) => {
+  const validateExt = useCallback(
+    (file: File): boolean => {
       const ext = "." + file.name.split(".").pop()?.toLowerCase();
       if (BLOCKED_HINT[ext]) {
-        pushToast("error", `${ext} isn't supported. ${BLOCKED_HINT[ext]}`);
-        return;
+        pushToast("error", `${file.name}: ${BLOCKED_HINT[ext]}`);
+        return false;
       }
       if (!ACCEPTED.includes(ext)) {
-        pushToast("error", `File type ${ext} isn't supported. Save as PDF first.`);
+        pushToast("error", `${file.name}: ${ext} isn't supported. Save as PDF first.`);
+        return false;
+      }
+      return true;
+    },
+    [pushToast]
+  );
+
+  const handleFiles = useCallback(
+    async (files: File[]) => {
+      const valid = files.filter(validateExt);
+      if (valid.length === 0) return;
+      if (valid.length > 1) {
+        // Multi-file → batch flow. Skip per-file inspection; user picks one
+        // workflow + paper that applies to all. Defaults match the single-file
+        // happy path (21-up business cards on 14pt cardstock).
+        setStage({
+          kind: "batch_pending",
+          files: valid,
+          quantity: 100,
+          sides: 1,
+          stockCode: "14pt-cs-gloss",
+          presetKey: "bc_21up_12x18",
+        });
         return;
       }
+      const file = valid[0];
       setStage({ kind: "inspecting", file });
 
       // Read pre-selected tile or saved preset (set by WorkflowTiles / SavedPresets).
@@ -83,7 +107,7 @@ export function DropZone() {
         setStage({ kind: "idle" });
       }
     },
-    [pushToast, setStage]
+    [pushToast, setStage, validateExt]
   );
 
   // Global drag-drop on window so dropping anywhere lands here
@@ -96,8 +120,8 @@ export function DropZone() {
     const onDrop = (e: DragEvent) => {
       if (!e.dataTransfer?.types.includes("Files")) return;
       e.preventDefault();
-      const file = e.dataTransfer.files[0];
-      if (file) void handleFile(file);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) void handleFiles(files);
       setOver(false);
     };
     window.addEventListener("dragover", onDragOver);
@@ -106,7 +130,7 @@ export function DropZone() {
       window.removeEventListener("dragover", onDragOver);
       window.removeEventListener("drop", onDrop);
     };
-  }, [handleFile]);
+  }, [handleFiles]);
 
   if (stage.kind !== "idle" && stage.kind !== "inspecting") return null;
 
@@ -126,10 +150,11 @@ export function DropZone() {
         ref={fileRef}
         type="file"
         accept={ACCEPTED.join(",")}
+        multiple
         style={{ display: "none" }}
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void handleFile(file);
+          const files = e.target.files ? Array.from(e.target.files) : [];
+          if (files.length > 0) void handleFiles(files);
           e.target.value = "";
         }}
       />
@@ -144,7 +169,9 @@ export function DropZone() {
         <>
           <h2>Drop a PDF anywhere</h2>
           <p>We'll auto-detect the job type, recommend paper, and quote it.</p>
-          <p className="formats">PDF in v1 · PSD / AI / EPS coming in v2 · Word docs: save as PDF first</p>
+          <p className="formats">
+            Drop one to inspect, or multiple to batch · PDF / AI / PSD / PNG / JPG / TIFF / EPS · Word docs: save as PDF first
+          </p>
         </>
       )}
     </div>
