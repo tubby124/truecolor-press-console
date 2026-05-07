@@ -25,8 +25,10 @@ Auth-gated /api/* surface used by the React frontend:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import re
 import shutil
 from contextlib import asynccontextmanager
 from dataclasses import asdict
@@ -245,6 +247,127 @@ async def inspect_file(
     payload = inspector.to_dict(result)
     payload["upload_path"] = str(artwork)
     return payload
+
+
+# ───────────────────────── Pre-commit preview ─────────────────────────
+
+
+_PREVIEW_ID_RE = re.compile(r"^[a-f0-9]{12}$")
+
+
+def _resolve_inspected_pdf(filename: str) -> Path:
+    """Map an inspect filename back to the PDF on disk for re-imposition.
+
+    The /api/inspect route writes the original to settings.jobs_dir/_inspect/
+    and the normalized PDF to .../_inspect/normalized/<stem>.pdf. Prefer the
+    normalized PDF (so PSD/PNG/etc inputs work); fall back to the original if
+    it's already a PDF.
+    """
+    safe = Path(filename).name  # strip any path traversal
+    if not safe or safe.startswith("."):
+        raise HTTPException(400, "Invalid filename")
+    base = settings.jobs_dir / "_inspect"
+    candidates = [
+        base / "normalized" / (Path(safe).stem + ".pdf"),
+        base / safe,
+    ]
+    for c in candidates:
+        if c.exists() and c.suffix.lower() == ".pdf":
+            return c
+    raise HTTPException(404, f"Inspected PDF not found for '{safe}'. Re-drop the file.")
+
+
+@app.post("/api/preview")
+async def preview_imposed(
+    inspect_filename: str = Form(...),
+    preset_key: str = Form(...),
+    stock_code: str = Form(...),
+    quantity: int = Form(...),
+    sides: int = Form(1),
+    user: str = Depends(auth.current_user),
+):
+    """Render the imposed sheet PDF + cost preview without creating a job.
+
+    Same imposition path as /api/job (crop marks, reg marks, fold guides), so
+    what you see here is exactly what spools. Cached on disk by hash of
+    (filename, preset, sides) — qty/stock affect cost, not the imposed PDF.
+    """
+    if preset_key not in impose.PRESETS:
+        raise HTTPException(400, f"Unknown preset: {preset_key}")
+    stock = catalog.by_code(stock_code)
+    if stock is None:
+        raise HTTPException(400, f"Unknown stock: {stock_code}")
+
+    src_pdf = _resolve_inspected_pdf(inspect_filename)
+    layout = impose.PRESETS[preset_key]
+    if not layout.fits():
+        raise HTTPException(400, f"Layout {preset_key} doesn't fit on its parent sheet")
+
+    sheets = impose.sheets_needed(quantity, layout)
+    breakdown = jobs.cost_breakdown(stock, sheets, sides)
+
+    preview_dir = settings.jobs_dir / "_preview"
+    preview_dir.mkdir(parents=True, exist_ok=True)
+    preview_id = hashlib.sha1(f"{src_pdf.name}-{preset_key}-{sides}".encode()).hexdigest()[:12]
+    out_pdf = preview_dir / f"{preview_id}.pdf"
+
+    # Cache: skip re-render if up-to-date with source
+    if not out_pdf.exists() or out_pdf.stat().st_mtime < src_pdf.stat().st_mtime:
+        fold_piece_key = impose.FOLD_PRESET_MAP.get(preset_key)
+        fold_guides = impose.FOLD_GUIDES.get(fold_piece_key) if fold_piece_key else None
+        impose.impose_grid(
+            src_pdf,
+            layout=layout,
+            output_pdf=out_pdf,
+            sides=sides,
+            add_crop_marks=fold_piece_key is None,
+            add_reg_marks=fold_piece_key is None,
+            fold_guides=fold_guides,
+        )
+        # Invalidate cached thumb so the new layout shows
+        thumb = preview_dir / f"{preview_id}.png"
+        if thumb.exists():
+            try:
+                thumb.unlink()
+            except OSError:
+                pass
+
+    return {
+        "preview_id": preview_id,
+        "preview_url": f"/api/preview/{preview_id}.pdf",
+        "thumb_url": f"/api/preview/{preview_id}/thumb.png",
+        "sheets": sheets,
+        "paper_cost": breakdown["paper"],
+        "click_cost": breakdown["click"],
+        "total_cost": breakdown["total"],
+    }
+
+
+@app.get("/api/preview/{preview_id}.pdf")
+def get_preview_pdf(preview_id: str, user: str = Depends(auth.current_user)):
+    if not _PREVIEW_ID_RE.match(preview_id):
+        raise HTTPException(400, "Invalid preview id")
+    pdf = settings.jobs_dir / "_preview" / f"{preview_id}.pdf"
+    if not pdf.exists():
+        raise HTTPException(404, "preview not found")
+    return FileResponse(pdf, media_type="application/pdf")
+
+
+@app.get("/api/preview/{preview_id}/thumb.png")
+def get_preview_thumb(preview_id: str, user: str = Depends(auth.current_user)):
+    if not _PREVIEW_ID_RE.match(preview_id):
+        raise HTTPException(400, "Invalid preview id")
+    pdf = settings.jobs_dir / "_preview" / f"{preview_id}.pdf"
+    if not pdf.exists():
+        raise HTTPException(404, "preview not found")
+    out = settings.jobs_dir / "_preview" / f"{preview_id}.png"
+    try:
+        thumbs.render_thumb(pdf, out)
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"thumbnail render failed: {e}")
+    return FileResponse(out, media_type="image/png")
 
 
 # ───────────────────────── Jobs ─────────────────────────

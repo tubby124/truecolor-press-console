@@ -5,6 +5,7 @@ import { useStore } from "../store";
 import type { Preset, Stock } from "../types";
 import { ConfirmPrintButton } from "./ConfirmPrintButton";
 import { CostPanel } from "./CostPanel";
+import { InspectImposedPreview } from "./InspectImposedPreview";
 import { PreflightFindings } from "./PreflightFindings";
 import { SaveCurrentAsPreset } from "./SavedPresets";
 
@@ -208,7 +209,10 @@ export function InspectCard() {
           </div>
         </div>
 
-        <CostPanel />
+        <div className="inspect-side">
+          <InspectImposedPreview />
+          <CostPanel />
+        </div>
       </div>
     </div>
   );

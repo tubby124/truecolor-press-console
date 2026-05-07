@@ -8,6 +8,7 @@ import type {
   Job,
   JobSummary,
   Preset,
+  PreviewResult,
   PrinterStatus,
   Stock,
   TraysResponse,
@@ -72,6 +73,22 @@ export const api = {
     fd.append("file", file);
     fd.append("quantity_guess", String(quantityGuess));
     return request<InspectResult>("/api/inspect", { method: "POST", body: fd });
+  },
+
+  preview: (params: {
+    inspect_filename: string;
+    preset_key: string;
+    stock_code: string;
+    quantity: number;
+    sides: number;
+  }) => {
+    const fd = new FormData();
+    fd.append("inspect_filename", params.inspect_filename);
+    fd.append("preset_key", params.preset_key);
+    fd.append("stock_code", params.stock_code);
+    fd.append("quantity", String(params.quantity));
+    fd.append("sides", String(params.sides));
+    return request<PreviewResult>("/api/preview", { method: "POST", body: fd });
   },
 
   submitJob: (params: {

@@ -252,6 +252,51 @@ a {
   .inspect-card { grid-template-columns: 1fr; }
 }
 
+.inspect-side {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.preview-card .preview-thumb-link {
+  display: block;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  transition: border-color 0.15s ease;
+}
+.preview-card .preview-thumb-link:hover {
+  border-color: var(--accent);
+}
+.preview-card .preview-thumb {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 320px;
+  object-fit: contain;
+  background: #fff;
+}
+.preview-card .preview-thumb-skeleton {
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.preview-card .preview-meta {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.preview-card .preview-refresh {
+  color: var(--accent);
+}
+
 .card {
   background: var(--panel);
   border: 1px solid var(--border);

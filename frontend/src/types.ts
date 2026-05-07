@@ -132,3 +132,13 @@ export interface BatchItem {
   job?: Job;
   error?: string;
 }
+
+export interface PreviewResult {
+  preview_id: string;
+  preview_url: string;
+  thumb_url: string;
+  sheets: number;
+  paper_cost: number;
+  click_cost: number;
+  total_cost: number;
+}
