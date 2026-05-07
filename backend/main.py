@@ -42,6 +42,7 @@ from pydantic import BaseModel
 
 from . import (
     auth,
+    bleed_fix,
     catalog,
     impose,
     inspect as inspector,
@@ -249,6 +250,45 @@ async def inspect_file(
     payload = inspector.to_dict(result)
     payload["upload_path"] = str(artwork)
     return payload
+
+
+# ───────────────────────── Bleed auto-fix ─────────────────────────
+
+
+class BleedFixBody(BaseModel):
+    inspect_filename: str
+    target_bleed_in: float = 0.125
+
+
+@app.post("/api/bleed-fix")
+def bleed_fix_endpoint(body: BleedFixBody, user: str = Depends(auth.current_user)):
+    """Trim-extend the inspected PDF to reach `target_bleed_in` and re-run preflight.
+
+    The fixed PDF is written next to the inspected one as `<stem>__bleedfix.pdf`
+    and replaces the original on disk so the existing /api/preview + /api/job
+    pipeline picks it up automatically. Returns the new preflight findings so
+    the frontend can refresh the InspectCard without a re-upload.
+    """
+    src_pdf = _resolve_inspected_pdf(body.inspect_filename)
+    try:
+        fixed_path, grew_in = bleed_fix.fix_bleed(src_pdf, target_bleed_in=body.target_bleed_in)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(500, f"Couldn't extend the bleed: {e}")
+
+    # Replace the inspected PDF in place so downstream calls (preview, job)
+    # use the fixed version with no extra plumbing.
+    if fixed_path != src_pdf:
+        shutil.copyfile(fixed_path, src_pdf)
+        try:
+            fixed_path.unlink()
+        except OSError:
+            pass
+
+    after = bleed_fix.report_after_fix(src_pdf, body.target_bleed_in)
+    after["bleed_added_in"] = grew_in
+    return after
 
 
 # ───────────────────────── Pre-commit preview ─────────────────────────

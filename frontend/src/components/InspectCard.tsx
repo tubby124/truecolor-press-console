@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { dimensionsLabel } from "../auto-detect";
 import { useStore } from "../store";
-import type { Preset, Stock } from "../types";
+import type { Finding, Preset, Stock } from "../types";
 import { ConfirmPrintButton } from "./ConfirmPrintButton";
 import { CostPanel } from "./CostPanel";
 import { InspectImposedPreview } from "./InspectImposedPreview";
@@ -14,9 +14,11 @@ export function InspectCard() {
   const setStage = useStore((s) => s.setStage);
   const trays = useStore((s) => s.trays);
   const reset = useStore((s) => s.reset);
+  const pushToast = useStore((s) => s.pushToast);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [showCustomize, setShowCustomize] = useState(false);
+  const [bleedFixing, setBleedFixing] = useState(false);
 
   useEffect(() => {
     api.presets().then(setPresets).catch(() => {});
@@ -47,6 +49,49 @@ export function InspectCard() {
       : `${p.total}-up ${p.piece} on ${p.sheet}`;
   const presetTechDetail = (p: Preset) => `${p.total}-up ${p.piece} on ${p.sheet}`;
   const stockLabel = (s: Stock) => (s.friendly_name && s.friendly_name.length > 0 ? s.friendly_name : s.name);
+
+  async function fixBleed() {
+    if (stage.kind !== "inspected") return;
+    setBleedFixing(true);
+    try {
+      const after = await api.bleedFix({ inspect_filename: stage.file.name, target_bleed_in: 0.125 });
+      setStage({
+        ...stage,
+        result: {
+          ...stage.result,
+          findings: after.findings,
+          can_send: after.can_send,
+          page_count: after.page_count,
+        },
+      });
+      pushToast(
+        "success",
+        `Extended your background ${after.bleed_added_in.toFixed(3)}" so the color reaches the edge.`,
+      );
+    } catch (e) {
+      pushToast(
+        "error",
+        `Couldn't extend the bleed: ${e instanceof Error ? e.message : e}. Try re-exporting from your design tool with full-page bleed.`,
+      );
+    } finally {
+      setBleedFixing(false);
+    }
+  }
+
+  const renderFindingAction = (f: Finding) => {
+    if (f.code !== "insufficient-bleed") return null;
+    return (
+      <button
+        type="button"
+        className="cta secondary"
+        style={{ fontSize: 13, padding: "4px 10px" }}
+        onClick={fixBleed}
+        disabled={bleedFixing}
+      >
+        {bleedFixing ? "Extending background…" : "Fix it for me"}
+      </button>
+    );
+  };
 
   return (
     <div>
@@ -194,7 +239,7 @@ export function InspectCard() {
             </div>
           </div>
 
-          <PreflightFindings findings={result.findings} />
+          <PreflightFindings findings={result.findings} renderAction={renderFindingAction} />
 
           {trays?.configured && !trayMatch && (
             <div className="finding warn">

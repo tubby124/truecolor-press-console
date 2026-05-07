@@ -3,6 +3,7 @@
 
 import type {
   BatchItem,
+  Finding,
   Health,
   InspectResult,
   Job,
@@ -74,6 +75,22 @@ export const api = {
     fd.append("quantity_guess", String(quantityGuess));
     return request<InspectResult>("/api/inspect", { method: "POST", body: fd });
   },
+
+  bleedFix: (params: { inspect_filename: string; target_bleed_in?: number }) =>
+    request<{
+      page_count: number;
+      page_sizes: [number, number][];
+      findings: Finding[];
+      can_send: boolean;
+      bleed_added_in: number;
+    }>("/api/bleed-fix", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        inspect_filename: params.inspect_filename,
+        target_bleed_in: params.target_bleed_in ?? 0.125,
+      }),
+    }),
 
   preview: (params: {
     inspect_filename: string;
