@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from . import impose, preflight, printer
+from . import impose, preflight, printer, trays
 from .catalog import Stock, click_cost, paper_cost
 from .settings import settings
 
@@ -128,6 +128,13 @@ def run_job(
     submit_result = printer.submit(pdl, opts, language="POSTSCRIPT")
     job.spool_path = submit_result.get("spool")
     job.status = "spooled-dry" if submit_result["mode"] == "dry" else "sent-live"
+
+    # Tick the sheets-used counter on whichever tray currently holds this stock.
+    # Silent no-op if no tray matches (e.g. dry mode without configured trays).
+    try:
+        trays.record_sheets_used(stock.code, job.sheets)
+    except Exception:  # noqa: BLE001 — counter must never block a job
+        pass
 
     _save_job(job)
     return job

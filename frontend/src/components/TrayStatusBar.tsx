@@ -44,6 +44,17 @@ export function TrayStatusBar() {
                 {t?.paper_size ?? (stock ? stock.parent_sheet : "—")}
                 {level !== "unknown" ? ` · ${level}` : ""}
               </span>
+              {t?.stock_code && t.sheets_used > 0 && (
+                <span
+                  className={
+                    "tray-sheets-used " +
+                    (t.sheets_used >= 1000 ? "danger" : t.sheets_used >= 500 ? "warn" : "")
+                  }
+                  title={`${t.sheets_used} sheets used since last refill — click tray to mark "full" and reset`}
+                >
+                  {t.sheets_used.toLocaleString()} used
+                </span>
+              )}
             </button>
           );
         })}
@@ -53,7 +64,7 @@ export function TrayStatusBar() {
         <TrayEditor
           tray={editing}
           stocks={stocks}
-          current={state?.[editing] ?? { stock_code: null, paper_size: null, level: "unknown", updated_at: null }}
+          current={state?.[editing] ?? { stock_code: null, paper_size: null, level: "unknown", updated_at: null, sheets_used: 0 }}
           onClose={() => setEditing(null)}
           onSaved={(t) => {
             setTrays(t);

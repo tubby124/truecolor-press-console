@@ -101,6 +101,7 @@ export interface TrayInfo {
   paper_size: string | null;
   level: "full" | "low" | "empty" | "unknown" | null;
   updated_at: string | null;
+  sheets_used: number;
 }
 
 export type TrayKey = "T1" | "T2" | "T3" | "T4" | "T5";

@@ -149,6 +149,16 @@ a {
 .tray-cell .status-dot.empty    { background: var(--danger); }
 .tray-cell .status-dot.unknown  { background: var(--muted); }
 
+.tray-sheets-used {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.tray-sheets-used.warn   { color: var(--warn); font-weight: 500; }
+.tray-sheets-used.danger { color: var(--danger); font-weight: 600; }
+
 /* Banners */
 .banner {
   padding: 10px 18px;
