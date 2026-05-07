@@ -1,0 +1,32 @@
+[project]
+name = "truecolor-press-console"
+version = "0.1.0"
+description = "Mac drag-drop interface for the shop's Konica AccurioPress C3070"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "python-multipart>=0.0.12",
+    "pikepdf>=9.4",
+    "pillow>=11",
+    "psd-tools>=1.10",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
