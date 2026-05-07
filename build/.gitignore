@@ -1,0 +1,6 @@
+# Build artifacts staged by build-windows.ps1 — never commit.
+gs-portable/
+vendored/
+__pycache__/
+TrueColorPress/
+*.zip

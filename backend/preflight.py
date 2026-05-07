@@ -1,8 +1,15 @@
 """PDF preflight: color mode, font embedding, resolution, bleed.
 
-v1 covers PDF only. PSD / EPS / AI inputs run through normalize.py first to
-become PDF, then come back here. The point is to fail loudly before sending
-PDL to the press, not to silently fix problems.
+PSD / EPS / AI inputs run through normalize.py first to become PDF, then
+come back here. The point is to fail loudly before sending PDL to the
+press, not to silently fix problems.
+
+Checks performed:
+  - block: file missing / corrupt
+  - block: fonts referenced but not embedded (would substitute as Courier)
+  - warn:  bleed insufficient vs requested expect_bleed
+  - warn:  raster image at <300 DPI when projected at the page's print size
+  - warn:  inconsistent page sizes across a multi-page document
 """
 
 from __future__ import annotations
@@ -72,6 +79,60 @@ def _has_unembedded_fonts(pdf: pikepdf.Pdf) -> list[str]:
     return sorted(set(bad))
 
 
+def _check_image_dpi(pdf: pikepdf.Pdf) -> list[PreflightFinding]:
+    """Approx DPI = max(image pixel dim) / page-side inches. Flags <300 dpi.
+
+    This is a coarse upper-bound estimate (assumes the image fills the page).
+    Good enough to catch the common "150 dpi photo placed at full page size"
+    failure mode. Doesn't detect images placed at sub-page scales — those
+    might pass this check while still being soft, which is fine for v1.
+    """
+    findings: list[PreflightFinding] = []
+    for i, page in enumerate(pdf.pages, start=1):
+        mb = page.mediabox
+        w_in = (float(mb[2]) - float(mb[0])) / 72.0
+        h_in = (float(mb[3]) - float(mb[1])) / 72.0
+        page_max = max(w_in, h_in)
+        if page_max < 0.5:
+            continue
+        resources = page.get("/Resources")
+        if resources is None:
+            continue
+        xobjects = resources.get("/XObject") if hasattr(resources, "get") else None
+        if xobjects is None:
+            continue
+        worst_dpi: float | None = None
+        try:
+            for _name, obj in xobjects.items():
+                try:
+                    if obj.get("/Subtype") != pikepdf.Name("/Image"):
+                        continue
+                    width_px = int(obj.get("/Width", 0))
+                    height_px = int(obj.get("/Height", 0))
+                    if not width_px or not height_px:
+                        continue
+                    px_max = max(width_px, height_px)
+                    approx_dpi = px_max / page_max
+                    if worst_dpi is None or approx_dpi < worst_dpi:
+                        worst_dpi = approx_dpi
+                except Exception:
+                    continue
+        except Exception:
+            continue
+        if worst_dpi is not None and worst_dpi < 300:
+            severity: str
+            if worst_dpi < 150:
+                severity = "warn"
+                msg = (f"Page {i}: photo at ~{int(worst_dpi)} DPI will look blurry/soft "
+                       "in print. Replace with a higher-resolution version.")
+            else:
+                severity = "warn"
+                msg = (f"Page {i}: photo at ~{int(worst_dpi)} DPI is below the 300 DPI "
+                       "print standard. Likely OK for drafts; not for premium output.")
+            findings.append(PreflightFinding(severity, "low-dpi-image", msg, page=i))
+    return findings
+
+
 def _is_standard_14(base_font: str) -> bool:
     standard14 = {
         "Helvetica", "Helvetica-Bold", "Helvetica-Oblique", "Helvetica-BoldOblique",
@@ -103,12 +164,26 @@ def run(pdf_path: Path, *, expect_bleed_in: float = 0.0) -> PreflightReport:
             h_pt = float(mb[3]) - float(mb[1])
             report.page_sizes.append((w_pt, h_pt))
 
+        # Page-size consistency (multi-page docs that mix sizes confuse imposition + cause jams)
+        if len(report.page_sizes) > 1:
+            unique = {(round(w, 2), round(h, 2)) for w, h in report.page_sizes}
+            if len(unique) > 1:
+                report.findings.append(PreflightFinding(
+                    "warn", "mixed-page-sizes",
+                    f"Pages have {len(unique)} different sizes — the press may jam or "
+                    "switch trays mid-job. Consider exporting one PDF per size.",
+                ))
+
         unembedded = _has_unembedded_fonts(pdf)
         if unembedded:
             report.findings.append(PreflightFinding(
                 "block", "fonts-not-embedded",
                 f"Fonts not embedded — would substitute as Courier on press: {', '.join(unembedded)}",
             ))
+
+        # DPI check on raster XObjects relative to their drawn size on the page.
+        for finding in _check_image_dpi(pdf):
+            report.findings.append(finding)
 
         if expect_bleed_in > 0:
             bleed_pt = expect_bleed_in * 72

@@ -96,7 +96,17 @@ def run_job(
     job.sheets = impose.sheets_needed(quantity, layout)
 
     out_pdf = job_dir(job_id) / "imposed.pdf"
-    impose.impose_grid(artwork, layout=layout, output_pdf=out_pdf, sides=sides)
+    fold_piece_key = impose.FOLD_PRESET_MAP.get(preset_key)
+    fold_guides = impose.FOLD_GUIDES.get(fold_piece_key) if fold_piece_key else None
+    impose.impose_grid(
+        artwork,
+        layout=layout,
+        output_pdf=out_pdf,
+        sides=sides,
+        add_crop_marks=fold_piece_key is None,
+        add_reg_marks=fold_piece_key is None,
+        fold_guides=fold_guides,
+    )
     job.imposed_path = str(out_pdf)
 
     breakdown = cost_breakdown(stock, job.sheets, sides)

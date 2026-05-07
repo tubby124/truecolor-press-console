@@ -43,6 +43,7 @@ SHEETS = {
     "letter-l": SheetSpec("LETTER", 11.0, 8.5),
     "legal": SheetSpec("LEGAL", 8.5, 14.0),
     "ledger": SheetSpec("LEDGER", 11.0, 17.0),
+    "ledger-l": SheetSpec("LEDGER", 17.0, 11.0),
     "12x18": SheetSpec("P12X18", 12.0, 18.0),
     "18x12": SheetSpec("P12X18", 18.0, 12.0),
     "13x19": SheetSpec("P13X19", 13.0, 19.0),
@@ -81,6 +82,20 @@ PIECES = {
     "postcard_5x7": PieceSpec("Postcard 5×7", 7.0, 5.0),
     "flyer_half": PieceSpec("Half-Letter Flyer", 5.5, 8.5),
     "flyer_letter": PieceSpec("Letter Flyer", 8.5, 11.0, bleed_in=0.0),
+    "trifold_letter": PieceSpec("Tri-fold Letter", 11.0, 8.5, bleed_in=0.0),
+    "bifold_11x17": PieceSpec("Bi-fold 11×17", 17.0, 11.0, bleed_in=0.0),
+    "halffold_letter": PieceSpec("Half-fold Letter Card", 11.0, 8.5, bleed_in=0.0),
+    "poster_letter": PieceSpec("Letter Poster", 8.5, 11.0, bleed_in=0.0),
+    "poster_11x17": PieceSpec("11×17 Poster", 17.0, 11.0, bleed_in=0.0),
+}
+
+
+# Fold layouts: number of fold-guide vertical lines + fractional positions
+# along the wide axis. Used by impose_grid via add_fold_guides.
+FOLD_GUIDES: dict[str, list[float]] = {
+    "trifold_letter": [1 / 3, 2 / 3],
+    "bifold_11x17": [0.5],
+    "halffold_letter": [0.5],
 }
 
 
@@ -130,7 +145,45 @@ PRESETS: dict[str, GridLayout] = {
         SHEETS["letter"], PIECES["flyer_letter"],
         cols=1, rows=1, gutter_in=0.0, margin_in=0.0,
     ),
+    "trifold_1up_letter": GridLayout(
+        SHEETS["letter-l"], PIECES["trifold_letter"],
+        cols=1, rows=1, gutter_in=0.0, margin_in=0.0,
+    ),
+    "bifold_1up_11x17": GridLayout(
+        SHEETS["ledger-l"], PIECES["bifold_11x17"],
+        cols=1, rows=1, gutter_in=0.0, margin_in=0.0,
+    ),
+    "halffold_1up_letter": GridLayout(
+        SHEETS["letter-l"], PIECES["halffold_letter"],
+        cols=1, rows=1, gutter_in=0.0, margin_in=0.0,
+    ),
+    "poster_1up_letter": GridLayout(
+        SHEETS["letter"], PIECES["poster_letter"],
+        cols=1, rows=1, gutter_in=0.0, margin_in=0.0,
+    ),
+    "poster_1up_11x17": GridLayout(
+        SHEETS["ledger-l"], PIECES["poster_11x17"],
+        cols=1, rows=1, gutter_in=0.0, margin_in=0.0,
+    ),
 }
+
+
+# Map preset_key → fold-guide piece key (so the imposition step knows whether
+# to draw fold guides instead of crop marks).
+FOLD_PRESET_MAP: dict[str, str] = {
+    "trifold_1up_letter": "trifold_letter",
+    "bifold_1up_11x17": "bifold_11x17",
+    "halffold_1up_letter": "halffold_letter",
+}
+
+
+def fold_guide_pdf_ops(x: float, y: float, height: float) -> str:
+    """Dashed vertical fold-guide line. Light grey, low priority — operator hint."""
+    return (
+        f"q 0.6 0.6 0.6 RG 0.5 w [3 3] 0 d "
+        f"{x} {y} m {x} {y + height} l S "
+        "[] 0 d Q"
+    )
 
 
 def crop_mark_pdf_ops(x: float, y: float, length: float = 9.0, gap: float = 9.0) -> str:
@@ -168,6 +221,7 @@ def impose_grid(
     sides: int = 1,
     add_crop_marks: bool = True,
     add_reg_marks: bool = True,
+    fold_guides: list[float] | None = None,
 ) -> dict:
     """Place a single-page artwork PDF onto a parent sheet using a grid layout.
 
@@ -232,6 +286,12 @@ def impose_grid(
                 ops_lines.append(reg_mark_pdf_ops(sheet.width_pt / 2, sheet.height_pt - inches(0.25)))
                 ops_lines.append(reg_mark_pdf_ops(inches(0.25), sheet.height_pt / 2))
                 ops_lines.append(reg_mark_pdf_ops(sheet.width_pt - inches(0.25), sheet.height_pt / 2))
+
+            # Fold-guide ghost lines (vertical dashed) for fold workflows.
+            if fold_guides:
+                for frac in fold_guides:
+                    fx = sheet.width_pt * frac
+                    ops_lines.append(fold_guide_pdf_ops(fx, inches(0.25), sheet.height_pt - inches(0.5)))
 
             content_stream = " ".join(ops_lines).encode("latin-1")
             existing_contents = sheet_page.obj.get(Name.Contents)

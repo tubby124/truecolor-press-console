@@ -8,7 +8,10 @@ venv/
 .DS_Store
 node_modules/
 dist/
-build/
+dist-tsc-node/
+*.tsbuildinfo
+# build/ is the PyInstaller source dir (build/launch.py, build/truecolorpress.spec, etc.)
+# Staging artifacts inside it are ignored by build/.gitignore.
 *.log
 tmp/*
 !tmp/.gitkeep
