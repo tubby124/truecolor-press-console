@@ -1,24 +1,77 @@
 // Plain-English mapping of preflight finding codes → operator-friendly text.
-// Backend returns generic codes; we translate at the UI edge.
+// Backend now produces friendly messages directly (phase 4.X.1), so this is
+// mostly a pass-through. The WHAT_TO_DO map below provides the expand-to-fix
+// instructions surfaced by PreflightFindings.
 
 import type { Finding } from "./types";
 
-const MAP: Record<string, (f: Finding) => string> = {
-  "missing-file": () => "We couldn't read that file. Try saving it as PDF and dropping again.",
-  "corrupt-pdf": (f) => `That PDF looks corrupted. ${f.message.split(":").pop()?.trim() ?? ""}`,
-  "fonts-not-embedded": (f) =>
-    `Your design uses a font that isn't embedded in the PDF. The press would swap it for Courier (looks like a typewriter). Re-export with "Embed all fonts" turned on. ${f.message.replace(/^Fonts not embedded.*?:/, "Missing:")}`,
-  "no-trimbox": () =>
-    "We can't auto-verify your bleed because the file has no trim marks. We'll add bleed for you, but check the preview before printing.",
-  "insufficient-bleed": (f) =>
-    `Your design goes near the edge but the bleed is too small (${f.message.match(/[\d.]+/)?.[0] ?? "?"}"). After cutting, you may see white slivers. Re-export with at least 1/8" bleed, or print and accept some edge clipping.`,
-  "layout-fit": () =>
-    "The chosen layout doesn't fit on the parent sheet. Pick a different paper size or workflow.",
+export function plainEnglish(f: Finding): string {
+  return f.message;
+}
+
+export interface WhatToDo {
+  /** Steps the operator can take. Rendered as a numbered list. */
+  steps: string[];
+  /** Whether the system can fix this automatically (drives the inline Fix button). */
+  fixable?: boolean;
+}
+
+const WHAT_TO_DO: Record<string, WhatToDo> = {
+  "missing-file": {
+    steps: [
+      "Drop the file into this page again.",
+      "If the same error repeats, open the file in your design tool and save it as a fresh PDF, then drop that.",
+    ],
+  },
+  "corrupt-pdf": {
+    steps: [
+      "Open the original design (Illustrator / Photoshop / InDesign / Word).",
+      "Re-export it as a new PDF — use 'Save As' or 'Export', not 'Save'.",
+      "Drop the freshly-exported PDF into this page.",
+    ],
+  },
+  "fonts-not-embedded": {
+    steps: [
+      "Open the file in the design tool that made it.",
+      "Re-export as PDF with the 'Embed all fonts' (or 'Subset fonts') option turned on.",
+      "Drop the new PDF into this page.",
+    ],
+  },
+  "no-trimbox": {
+    steps: [
+      "If you don't need bleed (no color or photo touching the edge), you can print this as-is.",
+      "If you do need bleed: re-export the PDF with crop marks / trim box turned on. Most design tools call this 'Marks and Bleeds'.",
+    ],
+  },
+  "insufficient-bleed": {
+    steps: [
+      "Tap the 'Fix it for me' button to extend the background out to the trim line — works perfectly when your design has a full-bleed background.",
+      "If the design ends right at the cut line, instead re-export from your design tool with at least 1/8\" bleed all around.",
+    ],
+    fixable: true,
+  },
+  "low-dpi-image": {
+    steps: [
+      "Replace the photo on the flagged page with a higher-resolution version (300 dpi at the printed size).",
+      "If you can't get a sharper version, this is fine for a draft — just expect soft edges in print.",
+    ],
+  },
+  "mixed-page-sizes": {
+    steps: [
+      "Open the PDF in Preview or your design tool and check page sizes.",
+      "Save a separate PDF for each page size, drop them as a batch, and we'll print each one with the right paper.",
+    ],
+  },
+  "layout-fit": {
+    steps: [
+      "Pick a different layout from the 'Change layout' chip — make sure the parent sheet is big enough.",
+      "If you really need this combination, contact Hasan.",
+    ],
+  },
 };
 
-export function plainEnglish(f: Finding): string {
-  const fn = MAP[f.code];
-  return fn ? fn(f) : f.message;
+export function whatToDoFor(code: string): WhatToDo | null {
+  return WHAT_TO_DO[code] ?? null;
 }
 
 export function severityIcon(s: Finding["severity"]): string {
