@@ -28,11 +28,20 @@ function summarize(state: PressLiveState | null): { label: string; tone: "ok" | 
     const desc = warning.description?.trim();
     return { label: `Press: ${desc || "warning"}`, tone: "warn" };
   }
-  // Tray-empty surfacing even if the press hasn't elevated it to a critical alert.
+  // Tray-empty / tray-low surfacing even if the press hasn't elevated it to an
+  // alert. Empty wins over low; both warn at pill level so the operator knows
+  // to glance at the tray bar without forcing the expanded card open.
+  let lowTrayId: string | null = null;
   for (const [id, t] of Object.entries(state.trays)) {
     if (t.level_label === "empty") {
       return { label: `Press: tray ${id} empty`, tone: "warn" };
     }
+    if (t.level_label === "low" && lowTrayId === null) {
+      lowTrayId = id;
+    }
+  }
+  if (lowTrayId !== null) {
+    return { label: `Press: tray ${lowTrayId} low`, tone: "warn" };
   }
   if (state.device_status?.printer_status === "printing") {
     return { label: "Press: printing", tone: "ok" };

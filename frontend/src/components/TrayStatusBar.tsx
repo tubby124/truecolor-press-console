@@ -23,6 +23,48 @@ export function TrayStatusBar() {
   const loadedCount = state ? Object.values(state).filter((t) => t.stock_code).length : 0;
   const totalTrays = TRAY_KEYS.length;
 
+  // Escalation: count operator-marked low/empty trays. "unknown" doesn't escalate
+  // (operator hasn't told us yet). Trays without stock_code can't be empty —
+  // they're just unconfigured, which is normal.
+  const loadedTrays = state
+    ? Object.values(state).filter((t): t is NonNullable<typeof t> => Boolean(t?.stock_code))
+    : [];
+  const emptyCount = loadedTrays.filter((t) => t.level === "empty").length;
+  const lowCount = loadedTrays.filter((t) => t.level === "low").length;
+
+  let pillTone: "muted" | "warn" | "danger" = "muted";
+  let pillLabel = `Trays · ${loadedCount} of ${totalTrays} loaded`;
+  if (emptyCount > 0) {
+    pillTone = "danger";
+    pillLabel = `${emptyCount} tray${emptyCount === 1 ? "" : "s"} empty · refill now`;
+  } else if (lowCount > 0) {
+    pillTone = "warn";
+    pillLabel = `${lowCount} tray${lowCount === 1 ? "" : "s"} low · refill soon`;
+  }
+
+  const pillStyle: React.CSSProperties =
+    pillTone === "muted"
+      ? { fontSize: 12, color: "var(--muted)" }
+      : pillTone === "warn"
+      ? {
+          fontSize: 12,
+          fontWeight: 600,
+          color: "var(--warn)",
+          background: "rgba(244,186,58,0.12)",
+          border: "1px solid rgba(244,186,58,0.4)",
+          borderRadius: 999,
+          padding: "4px 10px",
+        }
+      : {
+          fontSize: 12,
+          fontWeight: 600,
+          color: "var(--danger)",
+          background: "rgba(255,92,92,0.14)",
+          border: "1px solid rgba(255,92,92,0.4)",
+          borderRadius: 999,
+          padding: "4px 10px",
+        };
+
   if (!expanded) {
     return (
       <div
@@ -33,12 +75,22 @@ export function TrayStatusBar() {
       >
         <button
           type="button"
-          className="ghost"
+          className={pillTone === "muted" ? "ghost" : undefined}
           onClick={() => setExpanded(true)}
-          title="Show what paper is loaded in each tray"
-          style={{ fontSize: 12, color: "var(--muted)" }}
+          title={
+            pillTone === "muted"
+              ? "Show what paper is loaded in each tray"
+              : "Click to see which tray needs paper"
+          }
+          style={pillStyle}
+          aria-live={pillTone === "muted" ? undefined : "polite"}
         >
-          Trays · {loadedCount} of {totalTrays} loaded
+          {pillLabel}
+          {pillTone !== "muted" && (
+            <span style={{ marginLeft: 8, color: "var(--muted)", fontWeight: 400 }}>
+              · {loadedCount}/{totalTrays} loaded
+            </span>
+          )}
         </button>
       </div>
     );
