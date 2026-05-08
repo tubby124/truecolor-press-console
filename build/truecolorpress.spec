@@ -29,6 +29,7 @@ def _opt_tree(src: Path, dst: str):
 datas = []
 datas += _opt_tree(REPO_ROOT / "frontend" / "dist", "frontend/dist")
 datas += _opt_tree(REPO_ROOT / "icc", "icc")
+datas += _opt_tree(REPO_ROOT / "assets" / "test-patterns", "assets/test-patterns")
 datas += _opt_tree(SPEC_DIR / "vendored" / "config.v1.csv", "data")
 datas += _opt_tree(SPEC_DIR / "gs-portable", "gs")
 
@@ -55,6 +56,19 @@ a = Analysis(
         # FastAPI uses these for form/multipart parsing.
         "multipart",
         "python_multipart",
+        # pysnmp (live press state) — its plugin discovery system uses lazy
+        # imports that PyInstaller can miss. List the protocol layers explicitly.
+        "pysnmp.entity.engine",
+        "pysnmp.entity.rfc3413",
+        "pysnmp.entity.rfc3413.cmdgen",
+        "pysnmp.hlapi",
+        "pysnmp.hlapi.v3arch",
+        "pysnmp.hlapi.v3arch.asyncio",
+        "pysnmp.smi.builder",
+        "pysnmp.smi.compiler",
+        "pyasn1.codec.ber",
+        "pyasn1.codec.cer",
+        "pyasn1.codec.der",
     ],
     hookspath=[],
     hooksconfig={},

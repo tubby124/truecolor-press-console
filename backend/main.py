@@ -48,9 +48,13 @@ from . import (
     inspect as inspector,
     jobs,
     normalize,
+    press_state_router,
     printer,
     saved_presets,
+    scanner,
+    scanner_router,
     settings as settings_mod,
+    test_patterns_router,
     thumbs,
     trays,
 )
@@ -74,10 +78,22 @@ async def lifespan(_app: FastAPI):
             )
     except Exception as e:  # noqa: BLE001 — never let purge crash boot
         logger.warning("Job purge failed at startup: %s", e)
+    # Same boundary for dismissed scans — accumulate slowly, purge alongside jobs.
+    try:
+        scanner.purge_old_dismissed()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Scanner dismissed-purge failed at startup: %s", e)
     yield
 
 
 app = FastAPI(title="True Color Press Console", version="0.2.0", lifespan=lifespan)
+
+# Sub-routers — shipped as separate modules so each capability owns its own
+# endpoints, types, and integration notes. Mount BEFORE the static-asset mount
+# below so /api/* always wins over the SPA shell.
+app.include_router(press_state_router.router)
+app.include_router(scanner_router.router)
+app.include_router(test_patterns_router.router)
 
 STATIC_DIR = settings.repo_root / "frontend" / "dist"
 LOGIN_HTML = """<!doctype html>
@@ -274,6 +290,13 @@ def bleed_fix_endpoint(body: BleedFixBody, user: str = Depends(auth.current_user
         fixed_path, grew_in = bleed_fix.fix_bleed(src_pdf, target_bleed_in=body.target_bleed_in)
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
+    except bleed_fix.BleedNoContentError as e:
+        # 422: the design ends at the trim line — extending MediaBox would just
+        # hide white slivers. Frontend shows a "re-export with bleed" toast.
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "design-ends-at-cut-line", "message": str(e)},
+        )
     except Exception as e:  # noqa: BLE001
         raise HTTPException(500, f"Couldn't extend the bleed: {e}")
 
@@ -564,6 +587,38 @@ def admin_purge_jobs(
 ):
     """Manual purge trigger. Defaults to settings.purge_jobs_after_days."""
     return jobs.purge_old_jobs(days=days)
+
+
+@app.post("/api/job/{job_id}/cancel-spool")
+def cancel_spool(job_id: str, user: str = Depends(auth.current_user)):
+    """Cancel a just-submitted job within the 5-second post-submit window.
+
+    Cancellable statuses: ``pending``, ``spooled-dry``. Once a job is
+    ``sent-live`` we leave the dir in place — the PJL bundle has already been
+    pushed and the operator must clear the press's queue at the panel /
+    PageScope. Anything else returns 409. Frontend hides the cancel button
+    on its own after 5s OR when the status string changes; the 409 is the
+    last-line guard.
+    """
+    job_path = settings.jobs_dir / job_id
+    job_file = job_path / "job.json"
+    if not job_file.exists():
+        raise HTTPException(404, "job not found")
+    try:
+        data = json.loads(job_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        raise HTTPException(409, "job state unreadable; cannot cancel safely")
+
+    status = (data.get("status") or "").lower()
+    cancellable = {"pending", "spooled-dry"}
+    if status not in cancellable:
+        raise HTTPException(409, f"job is '{status}'; not cancellable from here")
+
+    try:
+        shutil.rmtree(job_path)
+    except OSError as e:
+        raise HTTPException(500, f"could not remove job dir: {e}")
+    return {"job_id": job_id, "cancelled": True, "previous_status": status}
 
 
 @app.post("/api/job/{job_id}/reprint")

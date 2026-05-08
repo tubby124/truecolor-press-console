@@ -17,9 +17,11 @@ The whole folder zips cleanly (`TrueColorPress-vX.Y.Z.zip`). Updates = unzip on 
 | Backend Python code | `backend/` | exe via PyInstaller hook |
 | Frontend static assets | `frontend/dist/` | `_internal/frontend_dist/` |
 | ICC profile | `icc/` | `_internal/icc/` |
+| Test pattern PDFs | `assets/test-patterns/` | `_internal/assets/test-patterns/` |
 | Click-rate CSV | `truecolor-estimator/data/tables/config.v1.csv` | `_internal/data/config.v1.csv` (vendored — see Click-rate vendoring below) |
 | Ghostscript Windows binary | downloaded separately, see below | `_internal/gs/` |
 | Stocks JSON overlay | `~/.config/press-console/stocks.json` (live, not bundled) | created on first run |
+| Scanner inbox | `~/Documents/PressConsole/scans/` (live, not bundled) | created on first run, configurable via `PRESS_SCANNER_INBOX` env var |
 | Job history | `tmp/jobs/` (live) | created on first run, alongside the exe |
 
 ## One-time setup on the build machine

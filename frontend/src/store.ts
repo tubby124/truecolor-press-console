@@ -31,6 +31,20 @@ interface Store {
 
   showHistory: boolean;
   setShowHistory: (v: boolean) => void;
+
+  // "Last job" pill — appears in the topbar after a successful print and
+  // sticks around (across stage transitions back to idle) until the operator
+  // dismisses it. Cleared automatically when a NEW job hits stage=done so the
+  // pill always reflects the most recent print.
+  //
+  // lastJob: the Job rendered in the pill. Read from stage when stage.kind ==
+  //   "done" and persisted into the store as the operator moves away.
+  // lastJobAck: true when the operator has clicked the ✕ on the pill.
+  //   Resets to false whenever lastJob changes.
+  lastJob: import("./types").Job | null;
+  lastJobAck: boolean;
+  setLastJob: (job: import("./types").Job | null) => void;
+  ackLastJob: () => void;
 }
 
 let toastCounter = 0;
@@ -57,4 +71,17 @@ export const useStore = create<Store>((set) => ({
 
   showHistory: false,
   setShowHistory: (v) => set({ showHistory: v }),
+
+  lastJob: null,
+  lastJobAck: false,
+  setLastJob: (job) =>
+    set((state) => {
+      // Same job_id → keep ack state (operator may have already dismissed).
+      // Different job → clear ack so the pill shows again.
+      if (job && state.lastJob && state.lastJob.job_id === job.job_id) {
+        return { lastJob: job };
+      }
+      return { lastJob: job, lastJobAck: false };
+    }),
+  ackLastJob: () => set({ lastJobAck: true }),
 }));

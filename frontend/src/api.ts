@@ -3,15 +3,21 @@
 
 import type {
   BatchItem,
+  CancelSpoolResult,
   Finding,
   Health,
   InspectResult,
   Job,
   JobSummary,
   Preset,
+  PressLiveState,
   PreviewResult,
   PrinterStatus,
+  ScanImportResult,
+  ScanInboxResponse,
+  ScanSetupResponse,
   Stock,
+  TestPattern,
   TraysResponse,
 } from "./types";
 
@@ -57,6 +63,12 @@ export const api = {
   stocks: () => request<Stock[]>("/api/stocks"),
   rates: () => request<{ color: number; bw: number }>("/api/rates"),
   printer: () => request<PrinterStatus>("/api/printer"),
+
+  // Live press state — SNMP-derived tray + alert + pagecount snapshot.
+  // Cached 15s server-side; UI polls every 30s. Use pressStateRefresh to
+  // bypass the cache on explicit user action.
+  pressState: () => request<PressLiveState>("/api/press/state"),
+  pressStateRefresh: () => request<PressLiveState>("/api/press/state/refresh"),
 
   trays: () => request<TraysResponse>("/api/trays"),
   setTray: (
@@ -147,6 +159,14 @@ export const api = {
   jobs: (limit = 50) => request<JobSummary[]>(`/api/jobs?limit=${limit}`),
   job: (id: string) => request<Job>(`/api/job/${id}`),
   reprint: (id: string) => request<Job>(`/api/job/${id}/reprint`, { method: "POST" }),
+  cancelSpool: (id: string) =>
+    request<CancelSpoolResult>(`/api/job/${id}/cancel-spool`, { method: "POST" }),
+
+  // ─── Test patterns (calibration PDFs for tech visit + first prints) ───
+  testPatterns: () => request<TestPattern[]>("/api/test-patterns"),
+  testPatternPdfUrl: (id: string) => `/api/test-patterns/${id}/file.pdf`,
+  printTestPattern: (id: string) =>
+    request<Job>(`/api/test-patterns/${id}/print-test`, { method: "POST" }),
 
   imposedPdfUrl: (id: string) => `/api/job/${id}/imposed.pdf`,
   thumbUrl: (id: string) => `/api/job/${id}/thumb.png`,
@@ -158,6 +178,22 @@ export const api = {
     const qs = params.toString();
     return `/api/jobs/audit.csv${qs ? `?${qs}` : ""}`;
   },
+
+  // ─── Scanner inbox (C3070 Scan-to-SMB) ───
+  scanInbox: () => request<ScanInboxResponse>("/api/scan/inbox"),
+  scanImport: (filename: string) =>
+    request<ScanImportResult>("/api/scan/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename }),
+    }),
+  scanDismiss: (filename: string) =>
+    request<{ dismissed: string }>("/api/scan/dismiss", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename }),
+    }),
+  scanSetup: () => request<ScanSetupResponse>("/api/scan/setup-instructions"),
 };
 
 export { ApiError };

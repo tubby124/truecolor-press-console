@@ -9,12 +9,83 @@ import { FirstRunTrayWizard } from "./components/FirstRunTrayWizard";
 import { ImposedPreview, SubmittingScreen } from "./components/ImposedPreview";
 import { InspectCard } from "./components/InspectCard";
 import { JobHistory } from "./components/JobHistory";
+import { PressLiveStatus } from "./components/PressLiveStatus";
 import { SavedPresets } from "./components/SavedPresets";
+import { ScanInbox } from "./components/ScanInbox";
+import { TestPatternTile } from "./components/TestPatternTile";
 import { Toasts } from "./components/Toasts";
 import { TrayStatusBar } from "./components/TrayStatusBar";
 import { WorkflowTiles } from "./components/WorkflowTiles";
 import { useStore } from "./store";
-import type { Health } from "./types";
+import type { Health, Job } from "./types";
+
+function timeShort(iso: string): string {
+  // ISO from backend is UTC. Render in operator-local time, no seconds.
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
+function LastJobPill({ job, onDismiss }: { job: Job; onDismiss: () => void }) {
+  // Click anywhere on the pill (except the ✕) opens the imposed PDF in a new
+  // tab. The ✕ stops propagation so dismiss doesn't also fire the open-PDF
+  // handler.
+  const open = () => {
+    if (job.imposed_path) {
+      window.open(api.imposedPdfUrl(job.job_id), "_blank", "noopener");
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={open}
+      title={`Open imposed PDF for ${job.workflow}`}
+      style={{
+        marginLeft: 12,
+        background: "var(--panel-2, #2a2a2e)",
+        color: "var(--text, #f5f5f5)",
+        border: "1px solid var(--border, #333)",
+        borderRadius: 999,
+        padding: "4px 8px 4px 12px",
+        fontSize: 12,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        cursor: job.imposed_path ? "pointer" : "default",
+      }}
+    >
+      <span>
+        Last: <strong>{job.workflow}</strong> · {job.sheets} sheet{job.sheets !== 1 ? "s" : ""} · {timeShort(job.created_at)}
+      </span>
+      <span
+        role="button"
+        aria-label="Dismiss last-job pill"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDismiss();
+        }}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 18,
+          height: 18,
+          borderRadius: 999,
+          background: "var(--panel, #1a1a1d)",
+          color: "var(--muted, #888)",
+          fontSize: 12,
+          lineHeight: 1,
+          cursor: "pointer",
+        }}
+      >
+        ×
+      </span>
+    </button>
+  );
+}
 
 export default function App() {
   const stage = useStore((s) => s.stage);
@@ -22,6 +93,10 @@ export default function App() {
   const trays = useStore((s) => s.trays);
   const setShowHistory = useStore((s) => s.setShowHistory);
   const showHistory = useStore((s) => s.showHistory);
+  const lastJob = useStore((s) => s.lastJob);
+  const lastJobAck = useStore((s) => s.lastJobAck);
+  const setLastJob = useStore((s) => s.setLastJob);
+  const ackLastJob = useStore((s) => s.ackLastJob);
   const [health, setHealth] = useState<Health | null>(null);
   const [showWizard, setShowWizard] = useState(false);
 
@@ -33,6 +108,15 @@ export default function App() {
   useEffect(() => {
     if (trays && !trays.configured) setShowWizard(true);
   }, [trays]);
+
+  // Capture every successful print into the last-job pill. setLastJob
+  // resets the ack flag when the job_id changes, so a new print
+  // automatically replaces a dismissed pill from the previous job.
+  useEffect(() => {
+    if (stage.kind === "done") {
+      setLastJob(stage.job);
+    }
+  }, [stage, setLastJob]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -72,7 +156,11 @@ export default function App() {
         <span style={{ color: "var(--muted)", fontSize: 12 }}>
           C3070 @ 172.16.1.149 · v{health?.version ?? "—"}
         </span>
+        {lastJob && !lastJobAck && (
+          <LastJobPill job={lastJob} onDismiss={ackLastJob} />
+        )}
         <span className="grow" />
+        <PressLiveStatus />
         <button
           className="ghost"
           type="button"
@@ -110,7 +198,9 @@ export default function App() {
               Tip · ⌘H opens recent jobs · accepts PDF, AI, PSD, PNG, JPG, TIFF, EPS
             </p>
             <SavedPresets />
+            <ScanInbox />
             <WorkflowTiles />
+            <TestPatternTile />
           </>
         )}
 

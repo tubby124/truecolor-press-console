@@ -47,7 +47,9 @@ SHEETS = {
     "12x18": SheetSpec("P12X18", 12.0, 18.0),
     "18x12": SheetSpec("P12X18", 18.0, 12.0),
     "13x19": SheetSpec("P13X19", 13.0, 19.0),
+    "19x13": SheetSpec("P13X19", 19.0, 13.0),
     "sra3": SheetSpec("SRA3", 12.6, 17.7),
+    "sra3-l": SheetSpec("SRA3", 17.7, 12.6),
 }
 
 

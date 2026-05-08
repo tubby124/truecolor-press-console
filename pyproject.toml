@@ -12,6 +12,7 @@ dependencies = [
     "psd-tools>=1.10",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
+    "pysnmp>=6.2",
 ]
 
 [project.optional-dependencies]

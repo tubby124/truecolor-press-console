@@ -145,3 +145,110 @@ export interface PreviewResult {
   click_cost: number;
   total_cost: number;
 }
+
+// ───────────────────────── Test patterns ─────────────────────────
+// Mirrors backend/test_patterns_router.py PATTERNS metadata.
+
+export interface TestPattern {
+  id: string;
+  label: string;
+  friendly_label: string;
+  file_size_kb: number | null;
+  description: string;
+  recommended_stock: string;
+  recommended_preset: string;
+  sheet: string;
+  available: boolean;
+}
+
+// Returned by POST /api/job/{id}/cancel-spool when successful.
+export interface CancelSpoolResult {
+  job_id: string;
+  cancelled: boolean;
+  previous_status: string;
+}
+
+// 422 body shape from /api/bleed-fix when the design has no background to
+// extend. Caught in InspectCard's bleed handler.
+export interface BleedNoContentError {
+  error: "design-ends-at-cut-line";
+  message: string;
+}
+
+// ───────────────────────── Live press state ─────────────────────────
+// Mirrors backend/press_state.py composite_state(). Read-only, cached 15s.
+
+export type PressTrayLevelLabel = "empty" | "low" | "ok" | "full" | "unknown" | "other";
+
+export interface PressTrayState {
+  description: string;
+  paper_type: string | null;
+  paper_size: string | null;
+  feed_in: number | null;
+  xfeed_in: number | null;
+  level_raw: number | null;
+  level_pct: number | null;
+  level_label: PressTrayLevelLabel;
+  capacity: number | null;
+}
+
+export type PressAlertSeverity = "critical" | "warning" | "other" | "unknown";
+
+export interface PressAlert {
+  id: string;
+  severity: PressAlertSeverity;
+  severity_code: number | null;
+  group: string;
+  group_code: number | null;
+  code: number | null;
+  description: string;
+  uptime_ticks: number | null;
+}
+
+export interface PressDeviceStatus {
+  printer_status: string | null;
+  printer_status_code: number | null;
+  detected_error_bits: string | null;
+}
+
+export interface PressLiveState {
+  ts: string;
+  host: string;
+  reachable: boolean;
+  snmp_available: boolean;
+  snmp_used?: boolean;
+  trays: Record<string, PressTrayState>;
+  alerts: PressAlert[];
+  lifetime_pagecount: number | null;
+  device_status: PressDeviceStatus | null;
+  error: string | null;
+  cached: boolean;
+}
+
+// ───────────────────────── Scanner inbox ─────────────────────────
+// Files dropped by the C3070 via Scan-to-SMB into the operator's watch folder.
+// Mirrors backend/scanner.py list_inbox() output.
+
+export interface ScanItem {
+  filename: string;
+  size_kb: number;
+  modified_at: string; // ISO
+  suggested_workflow: "inspect" | "print" | "trash";
+  import_url: string;
+}
+
+export interface ScanInboxResponse {
+  inbox_dir: string;
+  items: ScanItem[];
+}
+
+// /api/scan/import returns the same shape as /api/inspect plus a couple of
+// scanner-specific fields so the frontend can re-use InspectCard.
+export interface ScanImportResult extends InspectResult {
+  source?: "scanner";
+}
+
+export interface ScanSetupResponse {
+  markdown: string;
+  inbox_dir: string;
+}

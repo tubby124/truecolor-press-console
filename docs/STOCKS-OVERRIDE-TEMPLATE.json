@@ -1,0 +1,48 @@
+[
+  {
+    "_comment": "HOW TO USE — Copy this file to ~/.config/press-console/stocks.json and edit. Each entry is keyed by `code`. To override a built-in default stock (e.g. correct its supplier cost), include the same `code` and only the fields you want to change. To add a NEW stock not in the built-in catalog, include all required fields. To delete a stock you don't carry, leave it OUT of your file (the built-in default still loads — to fully suppress a built-in, set its cost_per_unit to 0 and add the tag `_inactive`). After editing, restart the FastAPI server OR just refresh the operator UI — `shop_stocks()` re-reads on every /api/stocks call.",
+    "_required_fields_for_new_stock": ["code", "name"],
+    "_optional_fields": [
+      "friendly_name",
+      "finish (gloss|matte|silk|uncoated|synthetic)",
+      "weight (display string, e.g. '14pt / 130# cover / 350gsm')",
+      "cost_per_unit (per parent sheet, CAD)",
+      "parent_sheet (letter | letter-l | legal | ledger | ledger-l | 12x18 | 18x12 | 13x19 | 19x13 | sra3 | sra3-l)",
+      "tags (array of strings — used for filter chips and the cost panel; add '_cost_unverified' if estimate)",
+      "default_tray (TRAY1..TRAY5 — PJL MEDIASOURCE)",
+      "default_paper_size (PJL paper size code: LETTER, P12X18, P13X19, SRA3, LEGAL, LEDGER)"
+    ],
+    "_tray_convention_in_defaults": {
+      "TRAY1": "letter / multi-page docs (bond, light text)",
+      "TRAY2": "14pt cover (most-printed business card stock)",
+      "TRAY3": "mid-weight gloss / silk text (flyers, brochures)",
+      "TRAY4": "heavy text + premium covers (posters, premium BC)",
+      "TRAY5": "uncoated + specialty / synthetic (least rotated)"
+    },
+    "code": "_meta",
+    "name": "_meta — not a real stock"
+  },
+  {
+    "_comment_example_override": "Example — overriding the built-in 14pt cover with Hasan's actual Spicers invoice cost.",
+    "code": "14pt-cs-gloss",
+    "cost_per_unit": 0.328
+  },
+  {
+    "_comment_example_new_stock": "Example — adding a new uncoated kraft you stock that's not in built-ins.",
+    "code": "100lb-kraft-cover",
+    "name": "100lb Kraft Cover Brown",
+    "friendly_name": "Brown kraft card paper",
+    "finish": "uncoated",
+    "weight": "100lb cover / 270gsm",
+    "cost_per_unit": 0.245,
+    "parent_sheet": "12x18",
+    "tags": ["postcard", "card stock", "kraft", "uncoated", "rustic"],
+    "default_tray": "TRAY5",
+    "default_paper_size": "P12X18"
+  },
+  {
+    "_comment_example_inactivate": "Example — Hasan does NOT stock 16pt silk this quarter — flag it inactive so it grays out in the UI.",
+    "code": "16pt-cs-silk",
+    "tags": ["premium business card", "_inactive"]
+  }
+]

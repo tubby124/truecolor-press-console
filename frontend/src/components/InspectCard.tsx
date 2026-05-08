@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import { dimensionsLabel } from "../auto-detect";
 import { useStore } from "../store";
 import type { Finding, Preset, Stock } from "../types";
@@ -72,10 +72,28 @@ export function InspectCard() {
         `Extended your background ${after.bleed_added_in.toFixed(3)}" so the color reaches the edge.`,
       );
     } catch (e) {
-      pushToast(
-        "error",
-        `Couldn't extend the bleed: ${e instanceof Error ? e.message : e}. Try re-exporting from your design tool with full-page bleed.`,
-      );
+      // 422 = bleed_fix detected the design ends at the trim line — there is
+      // no background to extend. Surface a different message that points the
+      // operator at re-exporting from their design tool. Other errors fall
+      // through to the generic toast so the operator still sees something.
+      if (e instanceof ApiError && e.status === 422) {
+        const body = e.body as { error?: string; message?: string } | undefined;
+        const designEndsAtTrim = body?.error === "design-ends-at-cut-line";
+        if (designEndsAtTrim) {
+          pushToast(
+            "warn",
+            body?.message ??
+              `Looks like your design ends right at the cut line — there's no background to extend. Re-export from your design tool with at least 1/8" bleed.`,
+          );
+        } else {
+          pushToast("warn", body?.message ?? e.message);
+        }
+      } else {
+        pushToast(
+          "error",
+          `Couldn't extend the bleed: ${e instanceof Error ? e.message : e}. Try re-exporting from your design tool with full-page bleed.`,
+        );
+      }
     } finally {
       setBleedFixing(false);
     }

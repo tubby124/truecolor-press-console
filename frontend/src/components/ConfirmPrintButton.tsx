@@ -37,10 +37,80 @@ export function ConfirmPrintButton() {
   const [confirming, setConfirming] = useState<null | "qty" | "tray" | "load">(null);
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [pickedTray, setPickedTray] = useState<TrayKey>("T1");
+  // Operator override on hard blockers. When true, the disabled main button
+  // re-enables and the label flips to "(overriding warnings)". Cleared by an
+  // effect any time the stage shape changes (kind transition or different
+  // file) so the override never carries across jobs.
+  const [override, setOverride] = useState(false);
+  // Cancel-in-flight: visible while stage=submitting. Auto-disappears 5s
+  // after submitting starts OR when stage moves past submitting.
+  const [cancelVisible, setCancelVisible] = useState(false);
+  // Hold the most recent job_id so the Cancel handler can hit cancel-spool.
+  // Set right before stage moves to submitting so the handler doesn't have
+  // to read it back from the store mid-update.
+  const [inFlightJobId, setInFlightJobId] = useState<string | null>(null);
 
   useEffect(() => {
     api.stocks().then(setStocks).catch(() => {});
   }, []);
+
+  // Reset the override flag when the operator transitions away from
+  // "inspected". Watching stage.kind covers Discard, successful submit, and
+  // any other path that exits this card.
+  useEffect(() => {
+    if (stage.kind !== "inspected") setOverride(false);
+  }, [stage.kind]);
+
+  // Cancel-in-flight visibility lifecycle. Show on submitting → hide after
+  // 5s OR when stage moves past submitting. The auto-hide is the safety
+  // net: by then the job has either spooled or errored, and the cancel
+  // endpoint would either succeed silently (dry mode) or 409 (live).
+  useEffect(() => {
+    if (stage.kind !== "submitting") {
+      setCancelVisible(false);
+      return;
+    }
+    setCancelVisible(true);
+    const t = window.setTimeout(() => setCancelVisible(false), 5000);
+    return () => window.clearTimeout(t);
+  }, [stage.kind]);
+
+  if (stage.kind === "submitting") {
+    // While submitting, render a minimal Cancel button (the main green CTA
+    // is no longer interactive — stage has moved past inspected). The
+    // ImposedPreview / SubmittingScreen elsewhere handles spinner + status.
+    if (!cancelVisible) return null;
+    return (
+      <button
+        type="button"
+        className="cta secondary"
+        onClick={async () => {
+          if (!inFlightJobId) {
+            // Job_id not captured yet (network in flight): nothing to cancel
+            // remotely. Just hide the button.
+            setCancelVisible(false);
+            return;
+          }
+          try {
+            await api.cancelSpool(inFlightJobId);
+            pushToast("info", "Cancelled — job dropped.");
+            setStage({ kind: "idle" });
+          } catch (e) {
+            pushToast(
+              "warn",
+              `Cancel rejected: ${e instanceof Error ? e.message : e}. The press may have already taken it.`,
+            );
+          } finally {
+            setCancelVisible(false);
+            setInFlightJobId(null);
+          }
+        }}
+        style={{ fontSize: 13 }}
+      >
+        Cancel
+      </button>
+    );
+  }
 
   if (stage.kind !== "inspected") return null;
 
@@ -48,9 +118,10 @@ export function ConfirmPrintButton() {
   const trayMatch =
     !trays?.configured ||
     Object.values(trays.trays).some((t) => t.stock_code === stage.stockCode);
-  // Print is only blocked by hard preflight blockers. Tray mismatch now opens
-  // a load-confirmation modal instead of disabling the button.
-  const disabled = blocking;
+  // Print is blocked by hard preflight blockers UNLESS the operator has
+  // explicitly overridden the warnings. Tray mismatch opens a
+  // load-confirmation modal instead of disabling the button.
+  const disabled = blocking && !override;
   const stock = stocks.find((s) => s.code === stage.stockCode);
   const recommendedTray = (stock?.default_tray as TrayKey | undefined) ?? "T1";
   const stockLabel = (stock?.friendly_name || stock?.name) ?? stage.stockCode;
@@ -61,6 +132,7 @@ export function ConfirmPrintButton() {
     setConfirming(null);
     pushToast("info", `Spooling ${stage.file.name}…`);
     setStage({ kind: "submitting", file: stage.file });
+    setInFlightJobId(null);
     try {
       const job = await api.submitJob({
         file: stage.file,
@@ -70,6 +142,11 @@ export function ConfirmPrintButton() {
         quantity: stage.quantity,
         sides: stage.sides,
       });
+      // Capture the new job_id so the Cancel button (rendered while stage
+      // is "submitting") can call /cancel-spool. Note: the API call has
+      // already returned, so cancel will mostly be useful in dry mode for
+      // the brief window between response and stage transition.
+      setInFlightJobId(job.job_id);
       setStage({ kind: "done", job });
       pushToast(
         "success",
@@ -152,15 +229,37 @@ export function ConfirmPrintButton() {
         disabled={disabled}
         title="⌘ + Enter"
       >
-        {blocking
+        {blocking && !override
           ? "Fix the issues above first"
           : (() => {
               const noun = workflowNoun(stage.result.detected?.workflow, stage.quantity);
-              return noun
+              const label = noun
                 ? `Looks good — print ${stage.quantity} ${noun}`
                 : `Looks good — print ${stage.quantity}`;
+              return blocking && override
+                ? `${label} (overriding warnings)`
+                : label;
             })()}
       </button>
+
+      {/* Print-anyway escape hatch. Hard blockers in preflight catch real
+          issues (corrupt fonts, no pages, etc.) but the operator may know
+          something the preflight can't see — the press has already been
+          calibrated for this paper, the warning is a known false positive,
+          they're running a calibration sheet, etc. The override re-enables
+          the main button rather than spawning a separate code path so the
+          confirmation flow (qty modal, tray load modal) stays identical. */}
+      {blocking && !override && (
+        <button
+          className="cta secondary"
+          type="button"
+          onClick={() => setOverride(true)}
+          title="Bypass preflight blockers and print anyway"
+          style={{ fontSize: 13 }}
+        >
+          Print anyway, I know
+        </button>
+      )}
 
       {!blocking && !trayMatch && trays?.configured && (
         <button

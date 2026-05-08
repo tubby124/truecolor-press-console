@@ -36,19 +36,59 @@ class Stock:
     friendly_name: str = ""  # operator-facing label; falls back to `name` if empty
 
 
+# NOTE on cost_per_unit values:
+# These are 2025 ESTIMATED Saskatchewan wholesale per-parent-sheet costs based
+# on Spicers / Unisource / pacesetter-grade pricing for production digital
+# papers. They ground the cost panel within ±20% pending Hasan's actual
+# supplier invoices. Stocks with higher uncertainty carry the
+# `_cost_unverified` tag — the cost panel uses that to flag the row.
+#
+# tray distribution philosophy:
+#   T1 = letter / multi-page docs (bond, light text)
+#   T2 = 14pt covers (most-printed business card stock)
+#   T3 = mid-weight gloss / silk text (flyer / brochure runs)
+#   T4 = heavy text / premium covers (poster + premium BC)
+#   T5 = uncoated + specialty / synthetic (least-rotated)
+#
 _DEFAULT_STOCKS: tuple[Stock, ...] = (
+    # ── Bond / copy ───────────────────────────────────────────────────────
     Stock(
-        code="14pt-cs-gloss",
-        name="14pt Gloss Cover (Pacesetter)",
-        friendly_name="Thick glossy business card paper",
-        finish="gloss",
-        weight="14pt / 130# cover",
-        cost_per_unit=0.336,
-        parent_sheet="18x12",
-        tags=("business card", "postcard", "card stock"),
-        default_tray="TRAY2",
+        code="24lb-bond",
+        name="24lb Bond White",
+        friendly_name="Plain copy paper",
+        finish="matte",
+        weight="24lb bond / 90gsm",
+        cost_per_unit=0.020,
+        parent_sheet="letter",
+        tags=("multi-page document", "letterhead", "draft"),
+        default_tray="TRAY1",
+        default_paper_size="LETTER",
+    ),
+    Stock(
+        code="60lb-offset-text",
+        name="60lb Offset Opaque Text White",
+        friendly_name="Light multi-page paper (letterheads, manuals)",
+        finish="uncoated",
+        weight="60lb text / 89gsm",
+        cost_per_unit=0.025,
+        parent_sheet="letter",
+        tags=("letterhead", "multi-page document", "manual", "_cost_unverified"),
+        default_tray="TRAY1",
+        default_paper_size="LETTER",
+    ),
+    Stock(
+        code="60lb-bw-text",
+        name="60lb Bright White Text (Pacesetter)",
+        friendly_name="Cheap flyer paper (large runs)",
+        finish="uncoated",
+        weight="60lb text / 89gsm",
+        cost_per_unit=0.075,
+        parent_sheet="12x18",
+        tags=("flyer", "large run", "budget", "_cost_unverified"),
+        default_tray="TRAY3",
         default_paper_size="P12X18",
     ),
+    # ── Text stocks (flyers / brochures) ─────────────────────────────────
     Stock(
         code="80lb-gloss-text",
         name="80lb Gloss Text (Pacesetter)",
@@ -58,6 +98,18 @@ _DEFAULT_STOCKS: tuple[Stock, ...] = (
         cost_per_unit=0.110,
         parent_sheet="12x18",
         tags=("flyer", "brochure", "tri-fold", "bi-fold"),
+        default_tray="TRAY3",
+        default_paper_size="P12X18",
+    ),
+    Stock(
+        code="80lb-silk-text",
+        name="80lb Silk Text (Pacesetter)",
+        friendly_name="Soft-matte flyer / brochure paper (medium)",
+        finish="silk",
+        weight="80lb text / 118gsm",
+        cost_per_unit=0.120,
+        parent_sheet="12x18",
+        tags=("flyer", "brochure", "tri-fold", "soft finish", "_cost_unverified"),
         default_tray="TRAY3",
         default_paper_size="P12X18",
     ),
@@ -74,16 +126,103 @@ _DEFAULT_STOCKS: tuple[Stock, ...] = (
         default_paper_size="P12X18",
     ),
     Stock(
-        code="24lb-bond",
-        name="24lb Bond White",
-        friendly_name="Plain copy paper",
-        finish="matte",
-        weight="24lb bond / 90gsm",
-        cost_per_unit=0.020,
-        parent_sheet="letter",
-        tags=("multi-page document", "letterhead", "draft"),
-        default_tray="TRAY1",
-        default_paper_size="LETTER",
+        code="100lb-uncoated-text",
+        name="100lb Uncoated Text (premium)",
+        friendly_name="Premium soft brochure paper (no shine)",
+        finish="uncoated",
+        weight="100lb text / 148gsm",
+        cost_per_unit=0.165,
+        parent_sheet="12x18",
+        tags=("premium brochure", "uncoated", "soft finish", "_cost_unverified"),
+        default_tray="TRAY4",
+        default_paper_size="P12X18",
+    ),
+    # ── Cover stocks (cards / postcards) ─────────────────────────────────
+    Stock(
+        code="100lb-cover-uncoated",
+        name="100lb Cover Uncoated White",
+        friendly_name="Soft uncoated card paper",
+        finish="uncoated",
+        weight="100lb cover / 270gsm",
+        cost_per_unit=0.225,
+        parent_sheet="12x18",
+        tags=("postcard", "card stock", "uncoated", "writable", "_cost_unverified"),
+        default_tray="TRAY5",
+        default_paper_size="P12X18",
+    ),
+    Stock(
+        code="14pt-cs-gloss",
+        name="14pt Gloss Cover (Pacesetter)",
+        friendly_name="Thick glossy business card paper",
+        finish="gloss",
+        weight="14pt / 130# cover / 350gsm",
+        cost_per_unit=0.336,
+        parent_sheet="18x12",
+        tags=("business card", "postcard", "card stock"),
+        default_tray="TRAY2",
+        default_paper_size="P12X18",
+    ),
+    Stock(
+        code="14pt-cs-silk",
+        name="14pt Silk Cover (Pacesetter)",
+        friendly_name="Thick soft-matte business card paper",
+        finish="silk",
+        weight="14pt / 130# cover / 350gsm",
+        cost_per_unit=0.340,
+        parent_sheet="18x12",
+        tags=("business card", "postcard", "card stock", "soft finish", "_cost_unverified"),
+        default_tray="TRAY2",
+        default_paper_size="P12X18",
+    ),
+    Stock(
+        code="16pt-cs-gloss",
+        name="16pt Gloss Cover (premium)",
+        friendly_name="Extra-thick glossy business card paper",
+        finish="gloss",
+        weight="16pt / 150# cover / 400gsm",
+        cost_per_unit=0.420,
+        parent_sheet="18x12",
+        tags=("premium business card", "postcard", "premium card stock", "_cost_unverified"),
+        default_tray="TRAY4",
+        default_paper_size="P12X18",
+    ),
+    Stock(
+        code="16pt-cs-silk",
+        name="16pt Silk Cover (premium)",
+        friendly_name="Extra-thick soft-matte business card paper",
+        finish="silk",
+        weight="16pt / 150# cover / 400gsm",
+        cost_per_unit=0.440,
+        parent_sheet="18x12",
+        tags=("premium business card", "postcard", "premium card stock", "soft finish", "_cost_unverified"),
+        default_tray="TRAY4",
+        default_paper_size="P12X18",
+    ),
+    # ── Specialty / outdoor ──────────────────────────────────────────────
+    Stock(
+        code="synthetic-yupo-8mil",
+        name="Yupo Synthetic 8mil White (waterproof)",
+        friendly_name="Waterproof tear-proof plastic paper",
+        finish="synthetic",
+        weight="8mil / ~150gsm equiv",
+        cost_per_unit=1.350,
+        parent_sheet="12x18",
+        tags=("outdoor", "waterproof", "synthetic", "menu", "yard sign", "specialty",
+              "_cost_unverified", "_press_setup_required"),
+        default_tray="TRAY5",
+        default_paper_size="P12X18",
+    ),
+    Stock(
+        code="vellum-translucent",
+        name="29lb Translucent Vellum",
+        friendly_name="See-through specialty paper",
+        finish="uncoated",
+        weight="29lb vellum / 110gsm",
+        cost_per_unit=0.350,
+        parent_sheet="12x18",
+        tags=("specialty", "translucent", "overlay", "wedding", "_cost_unverified"),
+        default_tray="TRAY5",
+        default_paper_size="P12X18",
     ),
 )
 
