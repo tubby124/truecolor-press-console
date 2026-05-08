@@ -31,6 +31,18 @@ import webbrowser
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+# PyInstaller --windowed (console=False) leaves sys.stdout = sys.stderr = None
+# because there's no console attached. Anything that calls .write() or .isatty()
+# on these crashes with AttributeError. Critically, uvicorn.config.LOGGING_CONFIG
+# instantiates uvicorn.logging.DefaultFormatter which calls sys.stderr.isatty()
+# at config-dict load time — that error blew up the v0.2.1 build's server
+# thread before any of our own logging could capture it. Patch stdio at module
+# import time, before any third-party module gets a chance to touch it.
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w", encoding="utf-8", buffering=1)
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w", encoding="utf-8", buffering=1)
+
 log = logging.getLogger("truecolorpress.launcher")
 
 
@@ -336,6 +348,9 @@ def main() -> None:
                 port=port,
                 reload=False,
                 log_level="info",
+                # No console attached in the frozen Windows build; ANSI color
+                # codes would just clutter the file log.
+                use_colors=False,
             )
         except Exception:
             log.exception("uvicorn server thread crashed")
