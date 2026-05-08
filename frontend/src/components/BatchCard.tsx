@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useStore } from "../store";
 import type { Preset, Stock } from "../types";
@@ -11,11 +11,25 @@ export function BatchCard() {
   const trays = useStore((s) => s.trays);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [stocks, setStocks] = useState<Stock[]>([]);
+  const announcedRef = useRef(false);
 
   useEffect(() => {
     api.presets().then(setPresets).catch(() => {});
     api.stocks().then(setStocks).catch(() => {});
   }, []);
+
+  // One-shot batch-mode-engaged toast so the operator notices that batch
+  // mode is now active. Fires the first time we land on batch_pending.
+  useEffect(() => {
+    if (stage.kind === "batch_pending" && !announcedRef.current) {
+      announcedRef.current = true;
+      const n = stage.files.length;
+      pushToast("info", `Batch mode — ${n} file${n !== 1 ? "s" : ""} queued. Pick paper + layout once below; we'll print all of them.`);
+    }
+    if (stage.kind === "idle") {
+      announcedRef.current = false;
+    }
+  }, [stage, pushToast]);
 
   if (stage.kind !== "batch_pending") return null;
 

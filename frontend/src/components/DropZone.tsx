@@ -168,10 +168,21 @@ export function DropZone() {
         </>
       ) : (
         <>
-          <h2>Drop a PDF anywhere</h2>
-          <p>We'll auto-detect the job type, recommend paper, and quote it.</p>
+          <h2>Drop a file anywhere — or tap here to pick one</h2>
+          <p>We'll figure out what kind of job it is, recommend paper, and quote it.</p>
+          <div className="dropzone-modes" aria-hidden>
+            <span className="dropzone-mode">
+              <span className="dropzone-mode-icon">📄</span>
+              <span>1 file → inspect &amp; print</span>
+            </span>
+            <span className="dropzone-mode-sep">·</span>
+            <span className="dropzone-mode">
+              <span className="dropzone-mode-icon">📄📄📄</span>
+              <span>Multiple files → batch print</span>
+            </span>
+          </div>
           <p className="formats">
-            Drop one to inspect, or multiple to batch · PDF / AI / PSD / PNG / JPG / TIFF / EPS · Word docs: save as PDF first
+            PDF / AI / PSD / PNG / JPG / TIFF / EPS · For Word documents, save as PDF first.
           </p>
         </>
       )}

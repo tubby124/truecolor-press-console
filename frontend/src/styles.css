@@ -252,6 +252,31 @@ a {
   color: var(--muted);
 }
 
+.dropzone-modes {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.dropzone-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropzone-mode-icon {
+  font-size: 16px;
+}
+
+.dropzone-mode-sep {
+  opacity: 0.5;
+}
+
 /* Inspect card */
 .inspect-card {
   display: grid;
