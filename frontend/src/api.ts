@@ -56,6 +56,29 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
+export interface UpdateCheck {
+  current: string;
+  latest: string | null;
+  tag: string | null;
+  name: string | null;
+  notes: string | null;
+  zip_url: string | null;
+  zip_size: number;
+  published_at: string | null;
+  update_available: boolean;
+  supports_apply: boolean;
+  platform: string;
+  frozen: boolean;
+}
+
+export interface UpdateApplyResult {
+  ok: boolean;
+  tag?: string;
+  version?: string;
+  message?: string;
+  error?: string;
+}
+
 export const api = {
   health: () => request<Health>("/api/health"),
   me: () => request<{ user: string }>("/api/me"),
@@ -63,6 +86,11 @@ export const api = {
   stocks: () => request<Stock[]>("/api/stocks"),
   rates: () => request<{ color: number; bw: number }>("/api/rates"),
   printer: () => request<PrinterStatus>("/api/printer"),
+
+  // OTA updater (Windows .exe build only). Frontend polls /check on app
+  // mount + every 30 min; calls /apply when the user clicks the banner.
+  updateCheck: () => request<UpdateCheck>("/api/update/check"),
+  updateApply: () => request<UpdateApplyResult>("/api/update/apply", { method: "POST" }),
 
   // Live press state — SNMP-derived tray + alert + pagecount snapshot.
   // Cached 15s server-side; UI polls every 30s. Use pressStateRefresh to

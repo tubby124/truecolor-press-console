@@ -56,6 +56,13 @@ def cost_breakdown(stock: Stock, sheets: int, sides: int) -> dict[str, float]:
     return {"paper": pc, "click": cc, "total": round(pc + cc, 4)}
 
 
+def _pdf_page_count(pdf_path: Path) -> int:
+    """Count pages in an already-normalized PDF. Used for booklet sheet math."""
+    import pikepdf  # local import keeps jobs.py boot lean
+    with pikepdf.open(str(pdf_path)) as p:
+        return len(p.pages)
+
+
 def run_job(
     *,
     artwork: Path,
@@ -78,6 +85,14 @@ def run_job(
         artwork_path=str(artwork),
     )
 
+    is_booklet = impose.is_booklet_preset(preset_key)
+    # Booklet expectation: trimmed-from-12x18 needs 0.125" bleed; folded
+    # variants don't trim, so the preset declares bleed_in=0 and we don't
+    # warn on missing bleed (the design IS sheet-edge-to-sheet-edge).
+    if is_booklet:
+        booklet_preset = impose.BOOKLET_PRESETS[preset_key]
+        expect_bleed_in = booklet_preset.bleed_in
+
     pf = preflight.run(artwork, expect_bleed_in=expect_bleed_in)
     job.findings = [
         {"severity": f.severity, "code": f.code, "message": f.message, "page": f.page}
@@ -88,31 +103,70 @@ def run_job(
         _save_job(job)
         return job
 
-    layout = impose.PRESETS[preset_key]
-    if not layout.fits():
-        job.status = "blocked"
-        job.findings.append({"severity": "block", "code": "layout-fit",
-                             "message": f"Layout {preset_key} doesn't fit on its sheet"})
-        _save_job(job)
-        return job
-
-    job.sheets = impose.sheets_needed(quantity, layout)
-
     out_pdf = job_dir(job_id) / "imposed.pdf"
-    fold_piece_key = impose.FOLD_PRESET_MAP.get(preset_key)
-    fold_guides = impose.FOLD_GUIDES.get(fold_piece_key) if fold_piece_key else None
-    impose.impose_grid(
-        artwork,
-        layout=layout,
-        output_pdf=out_pdf,
-        sides=sides,
-        add_crop_marks=fold_piece_key is None,
-        add_reg_marks=fold_piece_key is None,
-        fold_guides=fold_guides,
-    )
+
+    if is_booklet:
+        booklet_preset = impose.BOOKLET_PRESETS[preset_key]
+        if not booklet_preset.fits():
+            job.status = "blocked"
+            job.findings.append({"severity": "block", "code": "layout-fit",
+                                 "message": f"Booklet preset {preset_key} doesn't fit on its sheet"})
+            _save_job(job)
+            return job
+        page_count = _pdf_page_count(artwork)
+        result = impose.impose_booklet(
+            artwork,
+            preset=booklet_preset,
+            output_pdf=out_pdf,
+            quantity=quantity,
+        )
+        job.sheets = result["total_sheets"]
+        sheet_name = booklet_preset.sheet.name
+        # Booklets always print duplex regardless of `sides` arg
+        duplex = True
+        # Side count for cost: 2 (front + back of every sheet)
+        sides_for_cost = 2
+        # Add a non-blocking note so the operator sees the booklet plan
+        job.findings.append({
+            "severity": "info",
+            "code": "booklet-plan",
+            "message": (
+                f"Booklet plan: {page_count} source pages → "
+                f"{result['sheets_per_copy']} sheet(s) per copy × "
+                f"{result['copies']} copies = {result['total_sheets']} sheets. "
+                + ("Trim head/foot/face after fold." if booklet_preset.trim_after
+                   else "Fold only — no trim.")
+            ),
+            "page": None,
+        })
+    else:
+        layout = impose.PRESETS[preset_key]
+        if not layout.fits():
+            job.status = "blocked"
+            job.findings.append({"severity": "block", "code": "layout-fit",
+                                 "message": f"Layout {preset_key} doesn't fit on its sheet"})
+            _save_job(job)
+            return job
+
+        job.sheets = impose.sheets_needed(quantity, layout)
+        fold_piece_key = impose.FOLD_PRESET_MAP.get(preset_key)
+        fold_guides = impose.FOLD_GUIDES.get(fold_piece_key) if fold_piece_key else None
+        impose.impose_grid(
+            artwork,
+            layout=layout,
+            output_pdf=out_pdf,
+            sides=sides,
+            add_crop_marks=fold_piece_key is None,
+            add_reg_marks=fold_piece_key is None,
+            fold_guides=fold_guides,
+        )
+        sheet_name = layout.sheet.name
+        duplex = (sides == 2)
+        sides_for_cost = sides
+
     job.imposed_path = str(out_pdf)
 
-    breakdown = cost_breakdown(stock, job.sheets, sides)
+    breakdown = cost_breakdown(stock, job.sheets, sides_for_cost)
     job.paper_cost = breakdown["paper"]
     job.click_cost = breakdown["click"]
     job.total_cost = breakdown["total"]
@@ -120,9 +174,9 @@ def run_job(
     pdl = out_pdf.read_bytes()
     opts = printer.PrintOptions(
         job_name=job_name or f"{workflow}-{job_id}",
-        paper=layout.sheet.name,
+        paper=sheet_name,
         media_source=stock.default_tray,
-        duplex=(sides == 2),
+        duplex=duplex,
         copies=1,
     )
     submit_result = printer.submit(pdl, opts, language="POSTSCRIPT")

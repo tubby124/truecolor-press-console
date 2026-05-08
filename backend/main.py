@@ -35,6 +35,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
+import pikepdf
 from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -57,7 +58,9 @@ from . import (
     test_patterns_router,
     thumbs,
     trays,
+    updater,
 )
+from .version import __version__
 from .settings import settings
 
 logger = logging.getLogger("press-console")
@@ -86,7 +89,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="True Color Press Console", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="True Color Press Console", version=__version__, lifespan=lifespan)
 
 # Sub-routers — shipped as separate modules so each capability owns its own
 # endpoints, types, and integration notes. Mount BEFORE the static-asset mount
@@ -164,11 +167,37 @@ def me(user: str = Depends(auth.current_user)):
     return {"user": user}
 
 
+@app.get("/api/update/check")
+def update_check(user: str = Depends(auth.current_user)):
+    """Returns current/latest version + whether an update is available.
+
+    GitHub API is rate-limited (60 req/hr unauthenticated) but we cache for
+    5 min, so a polling frontend won't hit it.
+    """
+    return updater.check()
+
+
+@app.post("/api/update/apply")
+def update_apply(user: str = Depends(auth.current_user)):
+    """Download the latest release and trigger the swap-and-relaunch script.
+
+    On success, the server **terminates within ~1.5 seconds**. The response
+    flushes first, then a background thread calls os._exit(0). The bundled
+    apply-update.cmd waits for the exe to exit, copies the new bundle on top,
+    and relaunches.
+
+    Only works in the frozen Windows .exe build. On dev / Mac, returns an
+    error and stays running.
+    """
+    return updater.apply_update()
+
+
 @app.get("/api/presets")
 def list_presets(user: str = Depends(auth.current_user)):
-    return [
+    grid = [
         {
             "key": k,
+            "kind": "grid",
             "sheet": l.sheet.name,
             "sheet_in": [l.sheet.width_in, l.sheet.height_in],
             "piece": l.piece.name,
@@ -182,6 +211,21 @@ def list_presets(user: str = Depends(auth.current_user)):
         }
         for k, l in impose.PRESETS.items()
     ]
+    booklet = [
+        {
+            "key": k,
+            "kind": "booklet",
+            "sheet": b.sheet.name,
+            "sheet_in": [b.sheet.width_in, b.sheet.height_in],
+            "page_in": [b.page_w_in, b.page_h_in],
+            "bleed_in": b.bleed_in,
+            "trim_after": b.trim_after,
+            "fits": b.fits(),
+            "friendly_label": b.label,
+        }
+        for k, b in impose.BOOKLET_PRESETS.items()
+    ]
+    return grid + booklet
 
 
 @app.get("/api/stocks")
@@ -357,45 +401,67 @@ async def preview_imposed(
     what you see here is exactly what spools. Cached on disk by hash of
     (filename, preset, sides) — qty/stock affect cost, not the imposed PDF.
     """
-    if preset_key not in impose.PRESETS:
+    is_booklet = impose.is_booklet_preset(preset_key)
+    if not is_booklet and preset_key not in impose.PRESETS:
         raise HTTPException(400, f"Unknown preset: {preset_key}")
     stock = catalog.by_code(stock_code)
     if stock is None:
         raise HTTPException(400, f"Unknown stock: {stock_code}")
 
     src_pdf = _resolve_inspected_pdf(inspect_filename)
-    layout = impose.PRESETS[preset_key]
-    if not layout.fits():
-        raise HTTPException(400, f"Layout {preset_key} doesn't fit on its parent sheet")
-
-    sheets = impose.sheets_needed(quantity, layout)
-    breakdown = jobs.cost_breakdown(stock, sheets, sides)
 
     preview_dir = settings.jobs_dir / "_preview"
     preview_dir.mkdir(parents=True, exist_ok=True)
-    preview_id = hashlib.sha1(f"{src_pdf.name}-{preset_key}-{sides}".encode()).hexdigest()[:12]
+    preview_id = hashlib.sha1(f"{src_pdf.name}-{preset_key}-{sides}-{quantity}".encode()).hexdigest()[:12]
     out_pdf = preview_dir / f"{preview_id}.pdf"
 
-    # Cache: skip re-render if up-to-date with source
-    if not out_pdf.exists() or out_pdf.stat().st_mtime < src_pdf.stat().st_mtime:
-        fold_piece_key = impose.FOLD_PRESET_MAP.get(preset_key)
-        fold_guides = impose.FOLD_GUIDES.get(fold_piece_key) if fold_piece_key else None
-        impose.impose_grid(
-            src_pdf,
-            layout=layout,
-            output_pdf=out_pdf,
-            sides=sides,
-            add_crop_marks=fold_piece_key is None,
-            add_reg_marks=fold_piece_key is None,
-            fold_guides=fold_guides,
-        )
-        # Invalidate cached thumb so the new layout shows
-        thumb = preview_dir / f"{preview_id}.png"
-        if thumb.exists():
-            try:
-                thumb.unlink()
-            except OSError:
-                pass
+    if is_booklet:
+        booklet_preset = impose.BOOKLET_PRESETS[preset_key]
+        if not booklet_preset.fits():
+            raise HTTPException(400, f"Booklet preset {preset_key} doesn't fit on its parent sheet")
+        with pikepdf.open(str(src_pdf)) as p:
+            page_count = len(p.pages)
+        sheets = impose.booklet_sheets_needed(page_count, quantity)
+        breakdown = jobs.cost_breakdown(stock, sheets, 2)  # booklets are always duplex
+
+        if not out_pdf.exists() or out_pdf.stat().st_mtime < src_pdf.stat().st_mtime:
+            impose.impose_booklet(
+                src_pdf,
+                preset=booklet_preset,
+                output_pdf=out_pdf,
+                quantity=quantity,
+            )
+            thumb = preview_dir / f"{preview_id}.png"
+            if thumb.exists():
+                try:
+                    thumb.unlink()
+                except OSError:
+                    pass
+    else:
+        layout = impose.PRESETS[preset_key]
+        if not layout.fits():
+            raise HTTPException(400, f"Layout {preset_key} doesn't fit on its parent sheet")
+        sheets = impose.sheets_needed(quantity, layout)
+        breakdown = jobs.cost_breakdown(stock, sheets, sides)
+
+        if not out_pdf.exists() or out_pdf.stat().st_mtime < src_pdf.stat().st_mtime:
+            fold_piece_key = impose.FOLD_PRESET_MAP.get(preset_key)
+            fold_guides = impose.FOLD_GUIDES.get(fold_piece_key) if fold_piece_key else None
+            impose.impose_grid(
+                src_pdf,
+                layout=layout,
+                output_pdf=out_pdf,
+                sides=sides,
+                add_crop_marks=fold_piece_key is None,
+                add_reg_marks=fold_piece_key is None,
+                fold_guides=fold_guides,
+            )
+            thumb = preview_dir / f"{preview_id}.png"
+            if thumb.exists():
+                try:
+                    thumb.unlink()
+                except OSError:
+                    pass
 
     return {
         "preview_id": preview_id,
@@ -451,7 +517,7 @@ async def submit_job(
     stock = catalog.by_code(stock_code)
     if stock is None:
         raise HTTPException(400, f"Unknown stock code: {stock_code}")
-    if preset_key not in impose.PRESETS:
+    if preset_key not in impose.PRESETS and not impose.is_booklet_preset(preset_key):
         raise HTTPException(400, f"Unknown preset: {preset_key}")
 
     # Tray-vs-stock guard: if the operator marked tray contents and none
@@ -663,7 +729,7 @@ def list_saved_presets(user: str = Depends(auth.current_user)):
 
 @app.post("/api/saved-presets")
 def upsert_saved_preset(body: SavedPresetBody, user: str = Depends(auth.current_user)):
-    if body.preset_key not in impose.PRESETS:
+    if body.preset_key not in impose.PRESETS and not impose.is_booklet_preset(body.preset_key):
         raise HTTPException(400, f"Unknown preset_key: {body.preset_key}")
     if catalog.by_code(body.stock_code) is None:
         raise HTTPException(400, f"Unknown stock_code: {body.stock_code}")
@@ -706,7 +772,7 @@ async def submit_batch(
     stock = catalog.by_code(stock_code)
     if stock is None:
         raise HTTPException(400, f"Unknown stock code: {stock_code}")
-    if preset_key not in impose.PRESETS:
+    if preset_key not in impose.PRESETS and not impose.is_booklet_preset(preset_key):
         raise HTTPException(400, f"Unknown preset: {preset_key}")
 
     upload_dir = settings.jobs_dir / "uploads"

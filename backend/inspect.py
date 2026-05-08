@@ -66,10 +66,25 @@ def auto_detect(width_in: float, height_in: float, page_count: int) -> WorkflowR
                                 "100lb-gloss-text", 0.0,
                                 "Print on letter sideways, fold once → 5.5×8.5 card. "
                                 "Fold guides drawn as ghost line.")
+        # Booklet: 4+ pages divisible by 4 → 8.5×11 saddle-stitch on 12×18
+        # (Hasan's primary booklet workflow — fold + trim 3 edges to finish).
+        if page_count >= 4 and page_count % 4 == 0:
+            return WorkflowRule("booklet_8.5x11", "8.5×11 Booklet", "booklet_8.5x11_12x18",
+                                "100lb-gloss-text", 0.125,
+                                f"Saddle-stitch booklet — {page_count} pages on 12×18, "
+                                f"fold once + trim 3 edges to 8.5×11. Bleed required (0.125\").")
         return WorkflowRule("flyer_letter", "Letter Flyer", "flyer_1up_letter",
                             "100lb-gloss-text", 0.0,
                             "1-up letter, 100lb gloss premium" if page_count == 1
                             else "Multi-page document, plain print")
+    if _approx(w, 5.5, 0.15) and _approx(h, 8.5, 0.15):
+        # 5.5×8.5 booklet from letter — 4+ pages divisible by 4. No bleed
+        # possible (page edges = sheet edges after fold).
+        if page_count >= 4 and page_count % 4 == 0:
+            return WorkflowRule("booklet_5.5x8.5", "5.5×8.5 Booklet", "booklet_5.5x8.5_letter",
+                                "80lb-gloss-text", 0.0,
+                                f"Saddle-stitch booklet — {page_count} pages on letter, "
+                                "fold once. No trim, no bleed possible.")
     if _approx(w, 11.0, 0.15) and _approx(h, 17.0, 0.15):
         # 11×17 is ambiguous: bi-fold brochure or large poster. Default to
         # bi-fold (more common request); operator switches via tile if poster.
@@ -142,19 +157,30 @@ def inspect_pdf(pdf_path: Path, *, quantity_guess: int = 100) -> InspectResult:
     suggested_quantity = quantity_guess
 
     if detected:
-        layout = impose.PRESETS.get(detected.preset_key)
         stock = catalog.by_code(detected.stock_code)
-        if layout and stock:
-            if detected.workflow.startswith(("business_card", "postcard")):
-                suggested_quantity = max(quantity_guess, 100)
-            elif detected.workflow == "flyer_letter":
-                suggested_quantity = max(min(quantity_guess, page_count), 1)
-            sheets_estimate = impose.sheets_needed(suggested_quantity, layout)
-            sides = 2 if page_count >= 2 and detected.workflow == "business_card" else 1
+        if impose.is_booklet_preset(detected.preset_key) and stock:
+            # Booklets: quantity = number of booklet copies. Default to 1 unless
+            # caller passed a higher quantity_guess. Sheets = ceil(pages/4) × copies.
+            suggested_quantity = max(quantity_guess if quantity_guess > 1 else 1, 1)
+            sheets_estimate = impose.booklet_sheets_needed(page_count, suggested_quantity)
+            sides = 2  # always duplex
             paper = round(sheets_estimate * stock.cost_per_unit, 4)
             click = round(sheets_estimate * sides * click_rates()["color"], 4)
             cost_preview = {"paper": paper, "click": click,
                             "total": round(paper + click, 4)}
+        else:
+            layout = impose.PRESETS.get(detected.preset_key)
+            if layout and stock:
+                if detected.workflow.startswith(("business_card", "postcard")):
+                    suggested_quantity = max(quantity_guess, 100)
+                elif detected.workflow == "flyer_letter":
+                    suggested_quantity = max(min(quantity_guess, page_count), 1)
+                sheets_estimate = impose.sheets_needed(suggested_quantity, layout)
+                sides = 2 if page_count >= 2 and detected.workflow == "business_card" else 1
+                paper = round(sheets_estimate * stock.cost_per_unit, 4)
+                click = round(sheets_estimate * sides * click_rates()["color"], 4)
+                cost_preview = {"paper": paper, "click": click,
+                                "total": round(paper + click, 4)}
 
     return InspectResult(
         filename=pdf_path.name,

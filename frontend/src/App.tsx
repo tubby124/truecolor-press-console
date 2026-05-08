@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
-import { HardwareGateBanner, PrinterStatusBanner } from "./components/Banners";
+import { HardwareGateBanner, PrinterStatusBanner, UpdateBanner } from "./components/Banners";
 import { BatchCard, BatchSubmittingScreen } from "./components/BatchCard";
 import { BatchDoneScreen } from "./components/BatchDoneScreen";
 import { DropZone } from "./components/DropZone";
@@ -185,6 +185,7 @@ export default function App() {
       </div>
 
       <TrayStatusBar />
+      <UpdateBanner />
       <HardwareGateBanner health={health} />
       <PrinterStatusBanner />
 

@@ -134,18 +134,38 @@ export const TILES: WorkflowTile[] = [
     emoji: "📎",
   },
 
-  // v3 — booklet maker (hardware-gated)
+  // v1 — saddle-stitch booklet imposition (no finisher activation; fold + stitch is manual at the Graphic Wizard)
   {
-    key: "booklet",
-    label: "Saddle-Stitch Booklet",
-    hint: "Booklet stapled at the spine — 11×17 sheets folded in half",
-    presetKey: null,
+    key: "booklet_8.5x11_12x18",
+    label: "8.5×11 Booklet (12×18, trimmed)",
+    hint: "Saddle-stitch booklet on 12×18 — fold once, trim 3 edges to 8.5×11. Bleed required.",
+    presetKey: "booklet_8.5x11_12x18",
+    defaultStock: "100lb-gloss-text",
+    defaultQty: 1,
+    defaultSides: 2,
+    phase: "v1",
+    emoji: "📖",
+  },
+  {
+    key: "booklet_5.5x8.5_letter",
+    label: "5.5×8.5 Booklet (letter, fold only)",
+    hint: "Saddle-stitch booklet on letter — fold once into 5.5×8.5. No trim, no bleed.",
+    presetKey: "booklet_5.5x8.5_letter",
     defaultStock: "80lb-gloss-text",
     defaultQty: 1,
     defaultSides: 2,
-    phase: "v3",
-    hardwareGate:
-      "The booklet maker still needs to be checked over by the technician, and the page-ordering logic is still being built. Disabled until both are ready.",
+    phase: "v1",
+    emoji: "📖",
+  },
+  {
+    key: "booklet_8.5x11_11x17",
+    label: "8.5×11 Booklet (11×17, fold only)",
+    hint: "Saddle-stitch booklet on 11×17 — fold once into 8.5×11. No trim, no bleed.",
+    presetKey: "booklet_8.5x11_11x17",
+    defaultStock: "80lb-gloss-text",
+    defaultQty: 1,
+    defaultSides: 2,
+    phase: "v1",
     emoji: "📖",
   },
 

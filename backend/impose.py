@@ -192,6 +192,265 @@ FOLD_PRESET_MAP: dict[str, str] = {
 }
 
 
+# ───────────────────── Saddle-stitch booklet imposition ─────────────────────
+#
+# A saddle-stitch booklet is a multi-sheet job: each printed sheet, folded
+# once at the spine, contributes 4 booklet pages (2 front + 2 back). Page
+# order is "printer's spread" — NOT sequential. For a booklet of N pages
+# (padded to next multiple of 4):
+#
+#   sheet i (0-indexed) front:  page (N - 2i)   |   page (1 + 2i)
+#   sheet i back:               page (2 + 2i)   |   page (N - 1 - 2i)
+#
+# When the stack is folded and stitched, pages emerge in 1, 2, 3 ... order.
+#
+# The Konica's booklet-maker finisher stays disabled per CLAUDE.md hard rule
+# #1 (no finisher activation post-brownout). Fold + stitch happens off-press:
+# the operator folds at the Graphic Wizard and staples manually.
+
+
+@dataclass(frozen=True)
+class BookletPreset:
+    """Saddle-stitch booklet layout — 2 pages per side of a parent sheet, fold once.
+
+    Unlike GridLayout (which repeats one piece N times), a BookletPreset
+    represents a multi-sheet signature where each parent sheet holds 4 booklet
+    pages in printer's-spread order. Cost = ceil(page_count / 4) sheets per
+    booklet copy.
+    """
+
+    sheet: SheetSpec
+    page_w_in: float    # finished page trim width
+    page_h_in: float    # finished page trim height
+    bleed_in: float     # bleed beyond trim — 0 if no trim required, 0.125 if trimming 3 edges
+    trim_after: bool    # operator trims 3 edges down to finish size after fold
+    label: str          # operator-facing label
+
+    def fits(self) -> bool:
+        spread_w = 2 * inches(self.page_w_in) + 2 * inches(self.bleed_in)
+        spread_h = inches(self.page_h_in) + 2 * inches(self.bleed_in)
+        return spread_w <= self.sheet.width_pt and spread_h <= self.sheet.height_pt
+
+
+BOOKLET_PRESETS: dict[str, BookletPreset] = {
+    # 5.5×8.5 booklet from letter — fold once, no trim. Bleed not possible
+    # (page edges = sheet edges). Designer should keep art away from outer
+    # edges since there's no margin to trim into.
+    "booklet_5.5x8.5_letter": BookletPreset(
+        sheet=SHEETS["letter-l"], page_w_in=5.5, page_h_in=8.5,
+        bleed_in=0.0, trim_after=False,
+        label="Booklet 5.5×8.5 — letter sheet, fold only (no bleed)",
+    ),
+    # 8.5×11 booklet from 11×17 — fold once, no trim. Bleed not possible.
+    "booklet_8.5x11_11x17": BookletPreset(
+        sheet=SHEETS["ledger-l"], page_w_in=8.5, page_h_in=11.0,
+        bleed_in=0.0, trim_after=False,
+        label="Booklet 8.5×11 — 11×17 sheet, fold only (no bleed)",
+    ),
+    # 8.5×11 booklet from 12×18 — Hasan's primary workflow. Fold once → 9×12
+    # spread, then trim head/foot/face on Graphic Wizard down to 8.5×11.
+    # Bleed REQUIRED (0.125" all sides).
+    "booklet_8.5x11_12x18": BookletPreset(
+        sheet=SHEETS["18x12"], page_w_in=8.5, page_h_in=11.0,
+        bleed_in=0.125, trim_after=True,
+        label="Booklet 8.5×11 — 12×18 sheet, fold + trim 3 edges (bleed required)",
+    ),
+}
+
+
+def is_booklet_preset(preset_key: str) -> bool:
+    return preset_key in BOOKLET_PRESETS
+
+
+def saddle_stitch_pairs(page_count: int) -> list[tuple[int | None, int | None, int | None, int | None]]:
+    """Page indices for each printed sheet of a saddle-stitch booklet.
+
+    Returns a list of (front_left, front_right, back_left, back_right) tuples
+    of 1-based page numbers. None = blank padding (when source page count
+    isn't a multiple of 4, the booklet is padded to the next multiple).
+    """
+    if page_count < 1:
+        return []
+    n4 = ((page_count + 3) // 4) * 4
+    sheets: list[tuple[int | None, int | None, int | None, int | None]] = []
+
+    def in_range(p: int) -> int | None:
+        return p if 1 <= p <= page_count else None
+
+    for i in range(n4 // 4):
+        fl = n4 - 2 * i
+        fr = 1 + 2 * i
+        bl = 2 + 2 * i
+        br = n4 - 1 - 2 * i
+        sheets.append((in_range(fl), in_range(fr), in_range(bl), in_range(br)))
+    return sheets
+
+
+def booklet_sheets_per_copy(page_count: int) -> int:
+    """Number of parent sheets one booklet of `page_count` pages requires."""
+    if page_count <= 0:
+        return 0
+    return (page_count + 3) // 4
+
+
+def booklet_sheets_needed(page_count: int, quantity: int) -> int:
+    """Total parent sheets for `quantity` copies of a booklet."""
+    return booklet_sheets_per_copy(page_count) * max(quantity, 1)
+
+
+def _add_booklet_marks(
+    target_page,
+    sheet: SheetSpec,
+    ox: float,
+    oy: float,
+    pw: float,
+    ph: float,
+    *,
+    add_crop_marks: bool,
+    add_reg_marks: bool,
+    add_fold_guide: bool,
+    out_pdf: pikepdf.Pdf,
+) -> None:
+    """Draw crop marks at outer corners + spine head/foot, reg marks on sheet
+    midpoints, and a dashed fold guide down the spine. Marks are baked into
+    the content stream (survive RIP).
+    """
+    ops_lines: list[str] = []
+    spine_x = ox + pw
+
+    if add_crop_marks:
+        # Outer corners of the spread (4 marks)
+        ops_lines.append(crop_mark_pdf_ops(ox, oy))                          # bottom-left
+        ops_lines.append(crop_mark_pdf_ops(ox, oy + ph, length=9, gap=9))    # top-left
+        ops_lines.append(crop_mark_pdf_ops(ox + 2 * pw, oy, length=9, gap=-9))           # bottom-right
+        ops_lines.append(crop_mark_pdf_ops(ox + 2 * pw, oy + ph, length=9, gap=-9))      # top-right
+        # Spine head + foot (so the cutter has a head/foot reference at the fold)
+        ops_lines.append(crop_mark_pdf_ops(spine_x, oy))
+        ops_lines.append(crop_mark_pdf_ops(spine_x, oy + ph, length=9, gap=9))
+
+    if add_reg_marks:
+        ops_lines.append(reg_mark_pdf_ops(sheet.width_pt / 2, inches(0.25)))
+        ops_lines.append(reg_mark_pdf_ops(sheet.width_pt / 2, sheet.height_pt - inches(0.25)))
+        ops_lines.append(reg_mark_pdf_ops(inches(0.25), sheet.height_pt / 2))
+        ops_lines.append(reg_mark_pdf_ops(sheet.width_pt - inches(0.25), sheet.height_pt / 2))
+
+    if add_fold_guide:
+        ops_lines.append(fold_guide_pdf_ops(spine_x, inches(0.25), sheet.height_pt - inches(0.5)))
+
+    if not ops_lines:
+        return
+
+    content_stream = " ".join(ops_lines).encode("latin-1")
+    existing_contents = target_page.obj.get(Name.Contents)
+    if existing_contents is None:
+        target_page.obj[Name.Contents] = out_pdf.make_stream(content_stream)
+    else:
+        marks_stream = out_pdf.make_stream(content_stream)
+        if isinstance(existing_contents, pikepdf.Array):
+            existing_contents.append(marks_stream)
+        else:
+            target_page.obj[Name.Contents] = pikepdf.Array([existing_contents, marks_stream])
+
+
+def impose_booklet(
+    artwork_pdf: Path,
+    *,
+    preset: BookletPreset,
+    output_pdf: Path,
+    quantity: int = 1,
+    add_crop_marks: bool = True,
+    add_reg_marks: bool = True,
+    add_fold_guide: bool = True,
+) -> dict:
+    """Impose a multi-page artwork as N saddle-stitch booklet copies.
+
+    Source page 1 = booklet page 1, etc. For each copy, ceil(N/4) sheets are
+    emitted in printer's-spread order. Output PDF: front, back, front, back...
+    grouped by sheet, then by copy.
+
+    The artwork's page MediaBox is placed at trim size on the sheet — operator
+    should run bleed-fix beforehand if the design needs trim-extended bleed.
+    """
+    if not artwork_pdf.exists():
+        raise FileNotFoundError(artwork_pdf)
+    if not preset.fits():
+        raise ValueError(
+            f"Booklet preset doesn't fit: 2× {preset.page_w_in}×{preset.page_h_in} "
+            f"+ {preset.bleed_in}\" bleed exceeds {preset.sheet.name} "
+            f"({preset.sheet.width_in}×{preset.sheet.height_in})"
+        )
+
+    src = pikepdf.open(str(artwork_pdf))
+    page_count = len(src.pages)
+    if page_count < 1:
+        src.close()
+        raise ValueError("Booklet needs at least 1 source page")
+
+    sheet = preset.sheet
+    pw = inches(preset.page_w_in)
+    ph = inches(preset.page_h_in)
+
+    # Center the spread (2pw × ph) on the sheet. Bleed area is sheet margin
+    # around the spread; operator's pre-extended artwork extends into it.
+    spread_w = 2 * pw
+    spread_h = ph
+    ox = (sheet.width_pt - spread_w) / 2
+    oy = (sheet.height_pt - spread_h) / 2
+
+    left_rect = Rectangle(ox, oy, ox + pw, oy + ph)
+    right_rect = Rectangle(ox + pw, oy, ox + 2 * pw, oy + ph)
+
+    out = pikepdf.new()
+    pairs = saddle_stitch_pairs(page_count)
+    sheets_per_copy = len(pairs)
+    copies = max(quantity, 1)
+
+    def place(target, src_idx: int | None, rect: Rectangle) -> None:
+        if src_idx is None:
+            return
+        target.add_overlay(src.pages[src_idx - 1], rect)
+
+    for _copy in range(copies):
+        for fl, fr, bl, br in pairs:
+            # Front
+            front = out.add_blank_page(page_size=(sheet.width_pt, sheet.height_pt))
+            place(front, fl, left_rect)
+            place(front, fr, right_rect)
+            _add_booklet_marks(
+                front, sheet, ox, oy, pw, ph,
+                add_crop_marks=add_crop_marks,
+                add_reg_marks=add_reg_marks,
+                add_fold_guide=add_fold_guide,
+                out_pdf=out,
+            )
+            # Back
+            back = out.add_blank_page(page_size=(sheet.width_pt, sheet.height_pt))
+            place(back, bl, left_rect)
+            place(back, br, right_rect)
+            _add_booklet_marks(
+                back, sheet, ox, oy, pw, ph,
+                add_crop_marks=add_crop_marks,
+                add_reg_marks=add_reg_marks,
+                add_fold_guide=add_fold_guide,
+                out_pdf=out,
+            )
+
+    out.save(str(output_pdf))
+    src.close()
+    out.close()
+
+    return {
+        "output": str(output_pdf),
+        "sheet": sheet.name,
+        "source_pages": page_count,
+        "sheets_per_copy": sheets_per_copy,
+        "copies": copies,
+        "total_sheets": sheets_per_copy * copies,
+        "bleed_in": preset.bleed_in,
+        "trim_after": preset.trim_after,
+    }
+
+
 # Operator-facing labels for each layout. The dropdown shows these instead of
 # the raw "21-up Business Card on 12x18" tech string. Keep the friendly label
 # focused on what the operator actually picks: the piece + how many fit.
