@@ -73,6 +73,21 @@ export default function App() {
           C3070 @ 172.16.1.149 · v{health?.version ?? "—"}
         </span>
         <span className="grow" />
+        <button
+          className="ghost"
+          type="button"
+          onClick={() => {
+            try {
+              localStorage.removeItem("pressConsole.tourCompleted");
+            } catch {
+              // ignore
+            }
+            window.location.reload();
+          }}
+          title="Replay the 3-step intro popover"
+        >
+          Show tour
+        </button>
         <button className="ghost" type="button" onClick={() => setShowHistory(true)} title="⌘ + H">
           History
         </button>

@@ -5,6 +5,29 @@ import type { Stock, TrayKey } from "../types";
 
 const TRAY_KEYS: TrayKey[] = ["T1", "T2", "T3", "T4", "T5"];
 
+// Friendly noun for the green print button. Keyed by detected.workflow so the
+// button reads "Looks good — print 100 business cards" instead of just "100".
+const WORKFLOW_NOUN: Record<string, { one: string; many: string }> = {
+  business_card: { one: "business card", many: "business cards" },
+  postcard_3x4: { one: "postcard", many: "postcards" },
+  postcard_4x6: { one: "postcard", many: "postcards" },
+  postcard_5x7: { one: "postcard", many: "postcards" },
+  flyer_letter: { one: "flyer", many: "flyers" },
+  flyer_half: { one: "flyer", many: "flyers" },
+  trifold_brochure: { one: "tri-fold brochure", many: "tri-fold brochures" },
+  bifold_brochure: { one: "bi-fold brochure", many: "bi-fold brochures" },
+  halffold_card: { one: "card", many: "cards" },
+  poster_letter: { one: "poster", many: "posters" },
+  poster_11x17: { one: "poster", many: "posters" },
+};
+
+function workflowNoun(workflow: string | undefined, qty: number): string | null {
+  if (!workflow) return null;
+  const entry = WORKFLOW_NOUN[workflow];
+  if (!entry) return null;
+  return qty === 1 ? entry.one : entry.many;
+}
+
 export function ConfirmPrintButton() {
   const stage = useStore((s) => s.stage);
   const setStage = useStore((s) => s.setStage);
@@ -129,7 +152,14 @@ export function ConfirmPrintButton() {
         disabled={disabled}
         title="⌘ + Enter"
       >
-        {blocking ? "Fix blockers above to print" : `Looks good — print ${stage.quantity}`}
+        {blocking
+          ? "Fix the issues above first"
+          : (() => {
+              const noun = workflowNoun(stage.result.detected?.workflow, stage.quantity);
+              return noun
+                ? `Looks good — print ${stage.quantity} ${noun}`
+                : `Looks good — print ${stage.quantity}`;
+            })()}
       </button>
 
       {!blocking && !trayMatch && trays?.configured && (
