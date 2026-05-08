@@ -63,11 +63,14 @@ $VendorDir = Join-Path $RepoRoot "build\vendored"
 New-Item -ItemType Directory -Force -Path $VendorDir | Out-Null
 
 $EstimatorCsv = Join-Path $EstimatorRepo "data\tables\config.v1.csv"
-if (-not (Test-Path $EstimatorCsv)) {
-    Write-Warning "Estimator CSV not found at $EstimatorCsv — bundle will fall back to hardcoded click rates."
+$VendoredCsv = Join-Path $VendorDir "config.v1.csv"
+if (Test-Path $EstimatorCsv) {
+    Write-Host "==> Vendoring click-rate CSV from $EstimatorCsv (sibling estimator repo)" -ForegroundColor Cyan
+    Copy-Item -Force $EstimatorCsv $VendoredCsv
+} elseif (Test-Path $VendoredCsv) {
+    Write-Host "==> Sibling estimator repo not found; using committed vendored CSV at $VendoredCsv" -ForegroundColor Yellow
 } else {
-    Write-Host "==> Vendoring click-rate CSV from $EstimatorCsv" -ForegroundColor Cyan
-    Copy-Item -Force $EstimatorCsv (Join-Path $VendorDir "config.v1.csv")
+    Write-Warning "Estimator CSV not found at $EstimatorCsv and no committed fallback — bundle will use hardcoded click rates."
 }
 
 # ───────────────────────── 3. Stage Ghostscript ─────────────────────────

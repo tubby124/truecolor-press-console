@@ -1,6 +1,12 @@
 # Build artifacts staged by build-windows.ps1 — never commit.
 gs-portable/
-vendored/
 __pycache__/
 TrueColorPress/
 *.zip
+
+# vendored/ holds the click-rate CSV that ships inside the .exe. The build
+# script overwrites it from the sibling estimator repo when present; the
+# committed copy is the fallback used by CI builds (no sibling on the runner).
+# Keep config.v1.csv tracked; ignore everything else that lands here.
+vendored/*
+!vendored/config.v1.csv

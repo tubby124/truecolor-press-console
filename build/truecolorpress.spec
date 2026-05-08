@@ -69,6 +69,15 @@ a = Analysis(
         "pyasn1.codec.ber",
         "pyasn1.codec.cer",
         "pyasn1.codec.der",
+        # pystray (system-tray icon, Windows). Backend modules use lazy
+        # platform discovery — list both the package + the win32 backend.
+        "pystray",
+        "pystray._win32",
+        "pystray._base",
+        # PIL bits the tray icon generator uses (rounded_rectangle, truetype).
+        "PIL.Image",
+        "PIL.ImageDraw",
+        "PIL.ImageFont",
     ],
     hookspath=[],
     hooksconfig={},
@@ -97,7 +106,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    console=True,  # keep console visible — uvicorn logs go there for first-run debugging
+    console=False,  # GUI subsystem — tray icon is the only chrome; logs go to data/logs/server.log (set up in launch.py)
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

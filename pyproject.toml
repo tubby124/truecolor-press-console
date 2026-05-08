@@ -1,7 +1,7 @@
 [project]
 name = "truecolor-press-console"
-version = "0.1.0"
-description = "Mac drag-drop interface for the shop's Konica AccurioPress C3070"
+version = "0.2.0"
+description = "Local web app + tray launcher for the shop's Konica AccurioPress C3070"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
@@ -13,6 +13,9 @@ dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "pysnmp>=6.2",
+    # System-tray icon for the Windows .exe build. pystray pulls in pywin32
+    # via its win32 backend; both stay off Mac/Linux dev installs.
+    "pystray>=0.19; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
