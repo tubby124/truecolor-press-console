@@ -17,7 +17,9 @@ export function InspectCard() {
   const pushToast = useStore((s) => s.pushToast);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [stocks, setStocks] = useState<Stock[]>([]);
-  const [showCustomize, setShowCustomize] = useState(false);
+  // Progressive disclosure: only one section editable at a time.
+  // null = static recommendation, "paper"/"layout"/"quantity" = that row in edit mode.
+  const [customizing, setCustomizing] = useState<null | "paper" | "layout" | "quantity">(null);
   const [bleedFixing, setBleedFixing] = useState(false);
 
   useEffect(() => {
@@ -125,36 +127,72 @@ export function InspectCard() {
 
           <div className="recommendation-grid">
             <div className="key">Layout</div>
-            <div>
-              {showCustomize ? (
-                <select value={presetKey} onChange={(e) => updatePreset(e.target.value)}>
-                  {presets.map((p) => (
-                    <option key={p.key} value={p.key} title={presetTechDetail(p)}>
-                      {presetLabel(p)}
-                    </option>
-                  ))}
-                </select>
+            <div className="value-with-chip">
+              {customizing === "layout" ? (
+                <>
+                  <select value={presetKey} onChange={(e) => updatePreset(e.target.value)} autoFocus>
+                    {presets.map((p) => (
+                      <option key={p.key} value={p.key} title={presetTechDetail(p)}>
+                        {presetLabel(p)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="customize-chip active"
+                    onClick={() => setCustomizing(null)}
+                  >
+                    Done
+                  </button>
+                </>
               ) : (
-                <span title={preset ? presetTechDetail(preset) : undefined}>
-                  {preset ? presetLabel(preset) : "—"}
-                </span>
+                <>
+                  <span title={preset ? presetTechDetail(preset) : undefined}>
+                    {preset ? presetLabel(preset) : "—"}
+                  </span>
+                  <button
+                    type="button"
+                    className="customize-chip"
+                    onClick={() => setCustomizing("layout")}
+                  >
+                    Change layout
+                  </button>
+                </>
               )}
             </div>
 
             <div className="key">Paper</div>
-            <div>
-              {showCustomize ? (
-                <select value={stockCode} onChange={(e) => updateStock(e.target.value)}>
-                  {stocks.map((s) => (
-                    <option key={s.code} value={s.code} title={`${s.name} · ${s.weight}`}>
-                      {stockLabel(s)}
-                    </option>
-                  ))}
-                </select>
+            <div className="value-with-chip">
+              {customizing === "paper" ? (
+                <>
+                  <select value={stockCode} onChange={(e) => updateStock(e.target.value)} autoFocus>
+                    {stocks.map((s) => (
+                      <option key={s.code} value={s.code} title={`${s.name} · ${s.weight}`}>
+                        {stockLabel(s)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="customize-chip active"
+                    onClick={() => setCustomizing(null)}
+                  >
+                    Done
+                  </button>
+                </>
               ) : (
-                <span title={stock ? `${stock.name} · ${stock.weight}` : undefined}>
-                  {stock ? stockLabel(stock) : stockCode}
-                </span>
+                <>
+                  <span title={stock ? `${stock.name} · ${stock.weight}` : undefined}>
+                    {stock ? stockLabel(stock) : stockCode}
+                  </span>
+                  <button
+                    type="button"
+                    className="customize-chip"
+                    onClick={() => setCustomizing("paper")}
+                  >
+                    Change paper
+                  </button>
+                </>
               )}
             </div>
 
@@ -196,46 +234,83 @@ export function InspectCard() {
             </div>
 
             <div className="key">Quantity</div>
-            <div>
-              <input
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(e) => updateQty(parseInt(e.target.value || "1", 10))}
-                style={{ width: 100 }}
-              />
-              {preset && (
-                <span style={{ marginLeft: 8, color: "var(--muted)" }}>
-                  = {Math.ceil(quantity / preset.total)} sheet
-                  {Math.ceil(quantity / preset.total) !== 1 ? "s" : ""}
-                </span>
+            <div className="value-with-chip">
+              {customizing === "quantity" ? (
+                <>
+                  <input
+                    type="number"
+                    min={1}
+                    value={quantity}
+                    onChange={(e) => updateQty(parseInt(e.target.value || "1", 10))}
+                    style={{ width: 100 }}
+                    autoFocus
+                  />
+                  {preset && (
+                    <span style={{ marginLeft: 8, color: "var(--muted)" }}>
+                      = {Math.ceil(quantity / preset.total)} sheet
+                      {Math.ceil(quantity / preset.total) !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="customize-chip active"
+                    onClick={() => setCustomizing(null)}
+                  >
+                    Done
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span>
+                    {quantity}
+                    {preset && (
+                      <span style={{ marginLeft: 8, color: "var(--muted)" }}>
+                        = {Math.ceil(quantity / preset.total)} sheet
+                        {Math.ceil(quantity / preset.total) !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    className="customize-chip"
+                    onClick={() => setCustomizing("quantity")}
+                  >
+                    Change quantity
+                  </button>
+                </>
               )}
             </div>
 
             <div className="key">Sides</div>
             <div>
-              <label style={{ marginRight: 12 }}>
-                <input
-                  type="radio"
-                  name="sides"
-                  checked={sides === 1}
-                  onChange={() => updateSides(1)}
-                />{" "}
-                1-sided
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="sides"
-                  checked={sides === 2}
-                  onChange={() => updateSides(2)}
-                  disabled={result.page_count < 2}
-                />{" "}
-                2-sided{" "}
-                {result.page_count < 2 && (
-                  <span style={{ color: "var(--muted)" }}>(file has 1 page)</span>
-                )}
-              </label>
+              {customizing === "quantity" ? (
+                <>
+                  <label style={{ marginRight: 12 }}>
+                    <input
+                      type="radio"
+                      name="sides"
+                      checked={sides === 1}
+                      onChange={() => updateSides(1)}
+                    />{" "}
+                    1-sided
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="sides"
+                      checked={sides === 2}
+                      onChange={() => updateSides(2)}
+                      disabled={result.page_count < 2}
+                    />{" "}
+                    2-sided{" "}
+                    {result.page_count < 2 && (
+                      <span style={{ color: "var(--muted)" }}>(file has 1 page)</span>
+                    )}
+                  </label>
+                </>
+              ) : (
+                <span>{sides === 2 ? "2-sided (front + back)" : "1-sided"}</span>
+              )}
             </div>
           </div>
 
@@ -252,9 +327,6 @@ export function InspectCard() {
 
           <div className="cta-row">
             <ConfirmPrintButton />
-            <button className="cta secondary" type="button" onClick={() => setShowCustomize((v) => !v)}>
-              {showCustomize ? "Hide options" : "Customize"}
-            </button>
             <SaveCurrentAsPreset />
             <button className="cta danger" type="button" onClick={reset} title="Discard and start over (Esc)">
               Discard

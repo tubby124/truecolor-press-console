@@ -382,6 +382,35 @@ a {
   margin-left: 6px;
 }
 
+.value-with-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.customize-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.customize-chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.customize-chip.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
 /* Cost panel */
 .cost-rows {
   display: grid;
