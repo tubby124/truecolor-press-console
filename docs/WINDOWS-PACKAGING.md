@@ -97,14 +97,49 @@ The bundled launcher binds to `127.0.0.1:5273` — only the machine running the 
 
 ## Updating
 
-1. Land changes on `main` of the press-console repo.
-2. Pull on the build machine.
-3. Re-run `.\build\build-windows.ps1`.
-4. Stop the running exe on the shop PC (close the console window).
-5. Replace the `TrueColorPress` folder on the shop PC with the new dist folder (or unzip on top).
-6. Double-click `TrueColorPress.exe` to start.
+### OTA (v0.3.0+, recommended)
 
-Job history (`tmp/jobs/`) and the stocks overlay (`~/.config/press-console/stocks.json`) survive updates — they live outside the bundle.
+The app polls GitHub Releases on launch and every 30 minutes. When a newer
+release is published, an "Update available" banner appears at the top of
+the dashboard. The operator clicks **Download & install**:
+
+1. Backend downloads the new zip from the release into `data/update_staging/`.
+2. Backend writes `data/apply-update.cmd` and spawns it detached.
+3. Backend exits.
+4. The .cmd waits for `TrueColorPress.exe` to fully exit, then xcopies the
+   staged bundle on top of the install dir, relaunches the .exe, and
+   self-deletes.
+
+Total downtime: ~5-15 seconds. Job history + stocks overlay survive (they
+live in `data/jobs/` and `~/.config/press-console/`, both outside the bundle).
+
+**To ship an OTA update:**
+1. Land changes on `main`.
+2. Bump version in `backend/version.py` AND `pyproject.toml` (must match).
+3. Tag: `git tag v0.X.Y && git push origin v0.X.Y`.
+4. GitHub Actions builds the Windows zip and creates a Release automatically.
+5. Within 30 min, every running instance sees the banner. Operators click it.
+
+**Auth:** the updater uses the same session cookie as the rest of the app —
+operators have to be logged in (qwerty123) to apply. No remote-control risk.
+
+### Manual (first install OR if OTA is broken)
+
+1. Download `TrueColorPress-vX.Y.Z.zip` from the GitHub Releases page.
+2. On the shop PC: close the running app (right-click tray icon → Quit).
+3. Unzip on top of the existing `TrueColorPress` folder (overwrites bundle,
+   leaves `data/` intact).
+4. Double-click `TrueColorPress.exe`.
+
+This is the only path for the **first** v0.3.0 install on a machine still
+running v0.2.x — the older builds don't have the updater.
+
+### Building locally (rare)
+
+If GitHub Actions is down or you need a build off a non-tagged commit:
+1. Pull on a Windows build machine.
+2. Re-run `.\build\build-windows.ps1`.
+3. The zip lands in `dist/TrueColorPress-vX.Y.Z.zip`. Manually replace as above.
 
 ## Troubleshooting
 
