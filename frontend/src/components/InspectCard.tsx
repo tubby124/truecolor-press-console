@@ -5,6 +5,7 @@ import { useStore } from "../store";
 import type { Finding, Preset, Stock } from "../types";
 import { ConfirmPrintButton } from "./ConfirmPrintButton";
 import { CostPanel } from "./CostPanel";
+import { HelpTip } from "./HelpTip";
 import { InspectImposedPreview } from "./InspectImposedPreview";
 import { PreflightFindings } from "./PreflightFindings";
 import { SaveCurrentAsPreset } from "./SavedPresets";
@@ -126,7 +127,9 @@ export function InspectCard() {
           )}
 
           <div className="recommendation-grid">
-            <div className="key">Layout</div>
+            <div className="key">
+              Layout<HelpTip glossaryKey="preset" />
+            </div>
             <div className="value-with-chip">
               {customizing === "layout" ? (
                 <>
@@ -161,7 +164,9 @@ export function InspectCard() {
               )}
             </div>
 
-            <div className="key">Paper</div>
+            <div className="key">
+              Paper<HelpTip glossaryKey="stock" />
+            </div>
             <div className="value-with-chip">
               {customizing === "paper" ? (
                 <>
@@ -196,7 +201,9 @@ export function InspectCard() {
               )}
             </div>
 
-            <div className="key">Tray</div>
+            <div className="key">
+              Tray<HelpTip glossaryKey="tray" />
+            </div>
             <div>
               {loadedTray ? (
                 <>
@@ -213,7 +220,9 @@ export function InspectCard() {
               )}
             </div>
 
-            <div className="key">Bleed</div>
+            <div className="key">
+              Bleed<HelpTip glossaryKey="bleed" />
+            </div>
             <div>
               {result.detected && result.detected.expect_bleed_in > 0
                 ? `1/8" — auto-add if missing`
@@ -223,7 +232,9 @@ export function InspectCard() {
               )}
             </div>
 
-            <div className="key">Crop marks</div>
+            <div className="key">
+              Crop marks<HelpTip glossaryKey="cropMarks" />
+            </div>
             <div>
               {result.detected && result.detected.expect_bleed_in > 0
                 ? "Auto-add for cutter"
@@ -281,7 +292,9 @@ export function InspectCard() {
               )}
             </div>
 
-            <div className="key">Sides</div>
+            <div className="key">
+              Sides<HelpTip glossaryKey="duplex" />
+            </div>
             <div>
               {customizing === "quantity" ? (
                 <>
