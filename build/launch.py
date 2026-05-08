@@ -324,14 +324,25 @@ def main() -> None:
     port = int(os.environ.get("PRESS_BIND_PORT", str(settings.bind_port)))
     browser_url = f"http://localhost:{port}"
 
+    def _run_uvicorn() -> None:
+        # Catch + log everything. Without this an import error inside
+        # backend.main (eg a missing PyInstaller hidden import) kills the
+        # daemon thread silently, the browser opens at the 15s health-check
+        # timeout, and the user sees a dead port with no visible error.
+        try:
+            uvicorn.run(
+                "backend.main:app",
+                host=host,
+                port=port,
+                reload=False,
+                log_level="info",
+            )
+        except Exception:
+            log.exception("uvicorn server thread crashed")
+            raise
+
     server_thread = threading.Thread(
-        target=lambda: uvicorn.run(
-            "backend.main:app",
-            host=host,
-            port=port,
-            reload=False,
-            log_level="info",
-        ),
+        target=_run_uvicorn,
         daemon=True,
         name="uvicorn",
     )

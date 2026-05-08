@@ -13,11 +13,21 @@ Output:   dist/TrueColorPress/TrueColorPress.exe (+ supporting files)
 import os
 from pathlib import Path
 
+from PyInstaller.utils.hooks import collect_submodules
+
 # spec files are exec()'d, no __file__. SPECPATH is provided by PyInstaller.
 SPEC_DIR = Path(SPECPATH).resolve()  # noqa: F821
 REPO_ROOT = SPEC_DIR.parent
 
 block_cipher = None
+
+# launch.py only imports backend.settings directly; everything else
+# (backend.main, backend.printer, backend.routes.*, …) is loaded by uvicorn
+# at runtime from the string "backend.main:app". PyInstaller's static
+# analysis can't see that, so we explicitly collect every submodule under
+# backend/ as a hidden import. Without this the bundle ships an empty
+# backend package and the server thread dies on first request.
+BACKEND_HIDDEN_IMPORTS = collect_submodules("backend")
 
 
 def _opt_tree(src: Path, dst: str):
@@ -39,7 +49,7 @@ a = Analysis(
     pathex=[str(REPO_ROOT)],
     binaries=[],
     datas=datas,
-    hiddenimports=[
+    hiddenimports=BACKEND_HIDDEN_IMPORTS + [
         # uvicorn lazy-loads these; PyInstaller's static analysis misses them.
         "uvicorn.logging",
         "uvicorn.loops",
