@@ -57,7 +57,8 @@ def cmd_dry_run(args: argparse.Namespace) -> int:
         duplex=args.duplex,
         copies=args.copies,
     )
-    result = submit(pdl, opts, language="POSTSCRIPT")
+    language = "PDF" if pdf_path.suffix.lower() == ".pdf" else "POSTSCRIPT"
+    result = submit(pdl, opts, language=language)
     print(json.dumps(result, indent=2))
     return 0
 

@@ -179,7 +179,7 @@ def run_job(
         duplex=duplex,
         copies=1,
     )
-    submit_result = printer.submit(pdl, opts, language="POSTSCRIPT")
+    submit_result = printer.submit(pdl, opts, language="PDF")
     job.spool_path = submit_result.get("spool")
     job.status = "spooled-dry" if submit_result["mode"] == "dry" else "sent-live"
 
