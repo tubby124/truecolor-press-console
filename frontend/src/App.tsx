@@ -10,6 +10,7 @@ import { ImposedPreview, SubmittingScreen } from "./components/ImposedPreview";
 import { InspectCard } from "./components/InspectCard";
 import { JobHistory } from "./components/JobHistory";
 import { PressLiveStatus } from "./components/PressLiveStatus";
+import { PrinterQueuesPanel } from "./components/PrinterQueuesPanel";
 import { SavedPresets } from "./components/SavedPresets";
 import { ScanInbox } from "./components/ScanInbox";
 import { TestPatternTile } from "./components/TestPatternTile";
@@ -202,6 +203,7 @@ export default function App() {
             <ScanInbox />
             <WorkflowTiles />
             <TestPatternTile />
+            <PrinterQueuesPanel />
           </>
         )}
 

@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from . import impose, preflight, printer, trays
+from . import impose, preflight, printer, trays, win_spooler
 from .catalog import Stock, click_cost, paper_cost
 from .settings import settings
 
@@ -171,17 +171,61 @@ def run_job(
     job.click_cost = breakdown["click"]
     job.total_cost = breakdown["total"]
 
-    pdl = out_pdf.read_bytes()
-    opts = printer.PrintOptions(
-        job_name=job_name or f"{workflow}-{job_id}",
-        paper=sheet_name,
-        media_source=stock.default_tray,
-        duplex=duplex,
-        copies=1,
-    )
-    submit_result = printer.submit(pdl, opts, language="PDF")
-    job.spool_path = submit_result.get("spool")
-    job.status = "spooled-dry" if submit_result["mode"] == "dry" else "sent-live"
+    # Finishing workflows (booklet / stapled / punched) must go through the
+    # Windows print spooler because Konica's finisher commands aren't standard
+    # PJL. Plain workflows keep the raw PJL/9100 path — it's faster and gives
+    # us live status. Falls back to PJL with a non-blocking warning if Windows
+    # spooler isn't available (Mac dev, missing queue config, missing
+    # SumatraPDF). The press still images correctly; finisher just doesn't
+    # engage so operator hand-folds. Better than failing the job outright.
+    finishing_kind = win_spooler.workflow_kind(workflow) or win_spooler.workflow_kind(preset_key)
+    queues = win_spooler.load_queues()
+    queue_name = queues.get(finishing_kind) if finishing_kind else None
+
+    if finishing_kind and queue_name and win_spooler.supported():
+        spool = win_spooler.print_via_spooler(out_pdf, queue_name, copies=1)
+        job.spool_path = spool.pdf
+        if spool.ok:
+            job.status = "sent-spooler"
+            job.findings.append({
+                "severity": "info", "code": "spooler-sent",
+                "message": f"Sent to Windows queue '{queue_name}' with finishing preset.",
+                "page": None,
+            })
+        else:
+            job.status = "spooler-failed"
+            job.findings.append({
+                "severity": "block", "code": "spooler-error",
+                "message": spool.error or "Spooler reported failure.",
+                "page": None,
+            })
+    else:
+        # Plain path OR fallback when finishing requested but unavailable.
+        if finishing_kind and not (queue_name and win_spooler.supported()):
+            why = []
+            if not win_spooler.supported():
+                why.append("Windows spooler only available on Windows")
+            elif not queue_name:
+                why.append(f"no printer queue configured for '{finishing_kind}'")
+            job.findings.append({
+                "severity": "warn", "code": "finisher-unavailable",
+                "message": (
+                    f"Finisher engagement skipped ({'; '.join(why)}). "
+                    "Press imaged correctly — fold/staple/punch by hand."
+                ),
+                "page": None,
+            })
+        pdl = out_pdf.read_bytes()
+        opts = printer.PrintOptions(
+            job_name=job_name or f"{workflow}-{job_id}",
+            paper=sheet_name,
+            media_source=stock.default_tray,
+            duplex=duplex,
+            copies=1,
+        )
+        submit_result = printer.submit(pdl, opts, language="PDF")
+        job.spool_path = submit_result.get("spool")
+        job.status = "spooled-dry" if submit_result["mode"] == "dry" else "sent-live"
 
     # Tick the sheets-used counter on whichever tray currently holds this stock.
     # Silent no-op if no tray matches (e.g. dry mode without configured trays).

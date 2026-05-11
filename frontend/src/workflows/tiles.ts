@@ -119,18 +119,17 @@ export const TILES: WorkflowTile[] = [
     emoji: "🖼️",
   },
 
-  // v2 — stapler (hardware-gated)
+  // v2 — stapler (auto-finish via Windows spooler when queue configured;
+  // falls back to plain print + manual staple if not on Windows or queue blank)
   {
     key: "stapled_doc",
     label: "Stapled Document",
     hint: "Multi-page document with a corner staple",
-    presetKey: null,
+    presetKey: "stapled_plain_letter",
     defaultStock: "24lb-bond",
     defaultQty: 1,
     defaultSides: 2,
-    phase: "v2",
-    hardwareGate:
-      "The stapler still needs to be checked over by the Konica technician after the power surge. We've turned this off until that's done.",
+    phase: "v1",
     emoji: "📎",
   },
 
@@ -169,18 +168,16 @@ export const TILES: WorkflowTile[] = [
     emoji: "📖",
   },
 
-  // v4 — hole punch (hardware-gated)
+  // v4 — hole punch (auto-finish via Windows spooler when queue configured)
   {
     key: "punched",
     label: "3-Hole Binder Doc",
     hint: "Multi-page document with 3 binder holes punched on the side",
-    presetKey: null,
+    presetKey: "punched_plain_letter",
     defaultStock: "24lb-bond",
     defaultQty: 1,
     defaultSides: 2,
-    phase: "v4",
-    hardwareGate:
-      "The hole-punch attachment still needs to be checked over by the technician. Disabled until that's done.",
+    phase: "v1",
     emoji: "📑",
   },
 ];

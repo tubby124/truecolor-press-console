@@ -109,6 +109,23 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  printerQueues: () =>
+    request<{
+      supported: boolean;
+      kinds: string[];
+      queues: Record<string, string>;
+      sumatra_exe: string;
+    }>("/api/printer-queues"),
+  setPrinterQueues: (body: { booklet?: string; stapled?: string; punched?: string }) =>
+    request<{ queues: Record<string, string>; supported: boolean }>(
+      "/api/printer-queues",
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    ),
+
   inspect: (file: File, quantityGuess = 100) => {
     const fd = new FormData();
     fd.append("file", file);

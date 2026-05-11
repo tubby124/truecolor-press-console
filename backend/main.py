@@ -59,6 +59,7 @@ from . import (
     thumbs,
     trays,
     updater,
+    win_spooler,
 )
 from .version import __version__
 from .settings import settings
@@ -283,6 +284,41 @@ def update_tray(tray: str, body: TrayUpdate, user: str = Depends(auth.current_us
     except ValueError as e:
         raise HTTPException(400, str(e))
     return {"configured": True, "trays": state}
+
+
+# ───────────────────────── Printer queues (Windows finishing) ──────────────
+
+
+class PrinterQueuesUpdate(BaseModel):
+    booklet: Optional[str] = None
+    stapled: Optional[str] = None
+    punched: Optional[str] = None
+
+
+@app.get("/api/printer-queues")
+def get_printer_queues(user: str = Depends(auth.current_user)):
+    return {
+        "supported": win_spooler.supported(),
+        "kinds": list(win_spooler.FINISHING_KINDS),
+        "queues": win_spooler.load_queues(),
+        "sumatra_exe": settings.sumatra_exe,
+    }
+
+
+@app.put("/api/printer-queues")
+def put_printer_queues(body: PrinterQueuesUpdate, user: str = Depends(auth.current_user)):
+    incoming = body.model_dump(exclude_none=False)
+    # Merge: only overwrite keys explicitly sent; blank string clears.
+    current = win_spooler.load_queues()
+    for k, v in incoming.items():
+        if v is None:
+            continue
+        if v == "":
+            current.pop(k, None)
+        else:
+            current[k] = v
+    saved = win_spooler.save_queues(current)
+    return {"queues": saved, "supported": win_spooler.supported()}
 
 
 # ───────────────────────── Inspect (the magic moment) ─────────────────────────

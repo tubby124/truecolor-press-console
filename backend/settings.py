@@ -30,6 +30,17 @@ class Settings(BaseSettings):
     # Job retention. 0 disables purge. Walks settings.jobs_dir on startup.
     purge_jobs_after_days: int = 30
 
+    # Windows-only: SumatraPDF.exe path used to spool to named printer queues
+    # for finishing workflows (booklet, stapled, punched). PJL/9100 can't drive
+    # Konica finishers; the installed Windows driver knows the right commands.
+    sumatra_exe: str = r"C:\Program Files\SumatraPDF\SumatraPDF.exe"
+
+    # File path holding {workflow_kind: windows_printer_queue_name} JSON.
+    # Edited via the Settings UI; defaults to empty mapping.
+    printer_queues_file: Path = (
+        Path.home() / ".config" / "press-console" / "printer-queues.json"
+    )
+
 
 settings = Settings()
 settings.jobs_dir.mkdir(parents=True, exist_ok=True)

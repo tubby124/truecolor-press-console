@@ -180,6 +180,18 @@ PRESETS: dict[str, GridLayout] = {
         SHEETS["ledger-l"], PIECES["poster_11x17"],
         cols=1, rows=1, gutter_in=0.0, margin_in=0.0,
     ),
+    # Passthrough presets for finisher-only workflows (stapler, hole-punch).
+    # 1-up letter, no scaling, no crop/reg marks — source PDF prints as-is
+    # to Letter sheets; the Windows print spooler attaches finishing options
+    # via a queue-specific Konica driver preset.
+    "stapled_plain_letter": GridLayout(
+        SHEETS["letter"], PIECES["poster_letter"],
+        cols=1, rows=1, gutter_in=0.0, margin_in=0.0,
+    ),
+    "punched_plain_letter": GridLayout(
+        SHEETS["letter"], PIECES["poster_letter"],
+        cols=1, rows=1, gutter_in=0.0, margin_in=0.0,
+    ),
 }
 
 
