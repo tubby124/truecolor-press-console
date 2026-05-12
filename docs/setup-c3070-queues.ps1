@@ -3,12 +3,14 @@
 # What this does, in order:
 #   1. Installs SumatraPDF (silent, via winget) if it isn't already there.
 #   2. Adds a raw-TCP printer port at 172.16.1.149:9100 named "C3070_9100".
-#   3. Adds four Windows printer queues that all share that port, each with
+#   3. Adds six Windows printer queues that all share that port, each with
 #      a distinct name the app expects:
 #         C3070 Plain        — no finishing (plain pass-through)
-#         C3070 Booklet      — saddle-stitch + half-fold (brochures + booklets)
+#         C3070 Booklet      — saddle-stitch + center-fold (BM-660)
 #         C3070 Stapled      — corner staple
 #         C3070 Punched      — 3-hole punch
+#         C3070 Trifold      — letter tri-fold (FD-503)
+#         C3070 Halffold     — half-fold only, no stitch (FD-503)
 #   4. Tells you the ONE manual step left: open each queue's "Printing
 #      preferences" → Finishing tab and set the finisher option per queue.
 #
@@ -100,9 +102,9 @@ if ([string]::IsNullOrWhiteSpace($DriverName)) {
     Write-OK "Using driver: $DriverName"
 }
 
-# ─── Step 4: Add four queues ────────────────────────────────────────────────
-Write-Step 4 "Add the four named queues (each will share the C3070_9100 port)"
-$queues = @("C3070 Plain", "C3070 Booklet", "C3070 Stapled", "C3070 Punched")
+# ─── Step 4: Add six queues ─────────────────────────────────────────────────
+Write-Step 4 "Add the six named queues (each will share the C3070_9100 port)"
+$queues = @("C3070 Plain", "C3070 Booklet", "C3070 Stapled", "C3070 Punched", "C3070 Trifold", "C3070 Halffold")
 foreach ($q in $queues) {
     $existing = Get-Printer -Name $q -ErrorAction SilentlyContinue
     if ($existing) {
@@ -123,14 +125,18 @@ Write-Host ""
 Write-Host "  The Konica driver UI is the only way to bake finishing settings into each" -ForegroundColor White
 Write-Host "  queue's default Printing Preferences. PowerShell can't reach those fields." -ForegroundColor White
 Write-Host ""
-Write-Host "  For EACH of the four queues:" -ForegroundColor White
+Write-Host "  For EACH of the six queues:" -ForegroundColor White
 Write-Host "    Control Panel → Devices and Printers → right-click the queue → Printer properties" -ForegroundColor White
 Write-Host "    → click 'Preferences…' → switch to the 'Finishing' (or 'Layout') tab → set:" -ForegroundColor White
 Write-Host ""
-Write-Host "      C3070 Plain   → Output Method: Print  ·  Finisher: OFF  ·  Output Tray: top" -ForegroundColor Green
-Write-Host "      C3070 Booklet → Layout: Booklet  ·  Binding: Saddle-stitch + Center-fold  ·  Output: Booklet tray" -ForegroundColor Green
-Write-Host "      C3070 Stapled → Staple: ON, 1-corner (upper-left)  ·  Output Tray: finisher tray 1" -ForegroundColor Green
-Write-Host "      C3070 Punched → Punch: ON, 3-hole, left edge  ·  Output Tray: finisher tray 1" -ForegroundColor Green
+Write-Host "      C3070 Plain    → Output Method: Print  ·  Finisher: OFF  ·  Output Tray: top" -ForegroundColor Green
+Write-Host "      C3070 Booklet  → Layout: Booklet  ·  Binding: Saddle-stitch + Center-fold  ·  Output: Booklet tray" -ForegroundColor Green
+Write-Host "      C3070 Stapled  → Staple: ON, 1-corner (upper-left)  ·  Output Tray: finisher tray 1" -ForegroundColor Green
+Write-Host "      C3070 Punched  → Punch: ON, 3-hole, left edge  ·  Output Tray: finisher tray 1" -ForegroundColor Green
+Write-Host "      C3070 Trifold  → Fold: ON, Mode = Letter Tri-fold (Z or C — pick whichever your shop uses)  ·  Output Tray: folder catch" -ForegroundColor Green
+Write-Host "                       Sheet size: Letter only. Tri-fold won't engage on 11×17 or 12×18 — driver will reject silently." -ForegroundColor DarkGray
+Write-Host "      C3070 Halffold → Fold: ON, Mode = Half-fold  ·  Staple: OFF  ·  Output Tray: folder catch" -ForegroundColor Green
+Write-Host "                       Use this for any 1-fold brochure where you DON'T want a staple (bifold + greeting cards)." -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "    After setting, click Apply, then OK on both dialogs (Preferences + Properties)." -ForegroundColor White
 Write-Host "    The settings persist as the queue's defaults so every job hitting that queue" -ForegroundColor White

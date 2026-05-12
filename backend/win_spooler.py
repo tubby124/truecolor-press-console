@@ -19,6 +19,8 @@ Setup on the Windows machine (one-time, per shop):
        - "C3070 Booklet"  — saddle-stitch + half-fold
        - "C3070 Stapled"  — corner staple
        - "C3070 Punched"  — 3-hole punch
+       - "C3070 Trifold"  — letter tri-fold (FD-503)
+       - "C3070 Halffold" — half-fold only, no stitch (FD-503)
   3. In the press console Settings panel, save those four queue names.
 
 Then this module just picks the right queue per job and lets SumatraPDF
@@ -41,7 +43,9 @@ log = logging.getLogger(__name__)
 # Finishing workflow kinds → key in the printer-queues.json mapping.
 # The frontend tile.key (e.g. "booklet_5.5x8.5_letter") maps to one of these
 # via _workflow_kind() so we don't need a row in queues.json per tile.
-FINISHING_KINDS = ("booklet", "stapled", "punched")
+# "trifold" and "halffold" both ride the FD-503 fold unit — separated because
+# the Konica driver needs different Fold-Mode settings per queue.
+FINISHING_KINDS = ("booklet", "stapled", "punched", "trifold", "halffold")
 
 
 @dataclass(frozen=True)
@@ -82,7 +86,12 @@ def save_queues(mapping: dict[str, str]) -> dict[str, str]:
 
 def workflow_kind(workflow_or_preset: str) -> str | None:
     """Map a tile key or preset key to a finishing kind, or None if the
-    workflow doesn't need a finisher (plain print path)."""
+    workflow doesn't need a finisher (plain print path).
+
+    Order matters: "booklet" is checked before fold-only kinds because
+    booklet imposition implies stitch+fold (the BM-660 path), distinct
+    from a plain fold (the FD-503 path).
+    """
     s = (workflow_or_preset or "").lower()
     if "booklet" in s:
         return "booklet"
@@ -90,6 +99,10 @@ def workflow_kind(workflow_or_preset: str) -> str | None:
         return "stapled"
     if "punch" in s:
         return "punched"
+    if "trifold" in s:
+        return "trifold"
+    if "halffold" in s or "bifold" in s:
+        return "halffold"
     return None
 
 
