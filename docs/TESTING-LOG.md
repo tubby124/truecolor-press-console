@@ -1,0 +1,69 @@
+# C3070 Finishing Testing Log
+
+Tracks what's been verified end-to-end against the physical press vs. what's
+still pending Windows-side setup. Add a new dated block every test session.
+
+---
+
+## 2026-05-11 (Mac dev box, post v0.3.3 deploy)
+
+### Environment
+- Host: Hasan's Mac, app at `localhost:5273`, `PRESS_SAFE_PRINT_MODE=live`
+- Press: KONICA AccurioPress C3070 @ 172.16.1.149 (online, touchscreen dead — driven via PJL + future Windows queues)
+- Trays (per `/api/trays`): T1=24lb-bond (plain letter), T2=100lb-gloss-text, T3-T5=unknown
+- Network: shop wired LAN dropped earlier, Mac on Wi-Fi (same subnet — printer reachable)
+
+### ✅ What worked
+
+#### Test pattern: color-blocks-letter
+- Endpoint: `POST /api/test-patterns/color-blocks-letter/print-test`
+- Preset: `poster_1up_letter` (fix in v0.3.3 — was missing in v0.3.2)
+- Result: `status=sent-live`, press received the job. Press then reported `CODE=41502 DISPLAY="tray Letter"` until paper loaded.
+- Action: confirms the PJL → port 9100 pipeline. Bundle is built correctly. Tray state surfacing works.
+
+#### Saddle-stitch booklet imposition (5 pages, 5.5×8.5 finished, letter sheets)
+- File: 5-page numbered test PDF at `tmp/booklet-test-5pg.pdf`
+- Preset: `booklet_5.5x8.5_letter`
+- Stock: `24lb-bond` (plain letter, T1)
+- Quantity: 1 copy / 2 letter sheets / duplex
+- Result: `status=sent-live`, 2 sheets imaged at the press.
+- Info finding: "Booklet plan: 5 source pages → 2 sheet(s) per copy × 1 copies = 2 sheets. Fold only — no trim."
+- Warn finding: "Finisher engagement skipped (Windows spooler only available on Windows). Press imaged correctly — fold/staple/punch by hand."
+- **Imposition output**: 2 letter sheets, each printed both sides, page order arranged so that when the stack is folded in half down the spine and the outer sheet wraps the inner one:
+  - cover = source page 1
+  - inside front = page 2
+  - inside pages = 3, 4, 5
+  - back-side blanks fill the rounded-up 8th slot
+- **Operator action**: fold the 2 sheets together in half, manually saddle-stitch with a long-arm stapler at the spine. Verify the page numbers come out in the right sequence.
+
+#### STOP button (new in v0.3.3)
+- Endpoint: `POST /api/stop`
+- Sent PJL `JOB CANCEL` to press successfully (`printer.sent=true, host=172.16.1.149`)
+- No pending app-side jobs to drop, no Windows spool layer on Mac
+- UI: red STOP button in topbar, confirm modal, per-layer outcome surfaced as toasts
+
+### ⛔ What's NOT yet tested (blocked on Windows setup)
+
+These require the shop's Windows PC to have the 4 print queues configured per
+[setup-c3070-queues.ps1](setup-c3070-queues.ps1) + the Konica driver's
+Finishing tab populated per queue (UI step, not scriptable).
+
+| Feature | Blocked on | Test plan once Windows is up |
+|---|---|---|
+| **Auto-fold + saddle-stitch** (BM-660 finisher) | `C3070 Booklet` Windows queue + driver: Layout=Booklet, Binding=Saddle-stitch+Center-fold | Submit same 5-page test PDF as `booklet_5.5x8.5_letter` from Windows app instance, qty=1. Expect 2 letter sheets to come out *already folded + stapled at the spine* via the BM-660. Visually verify fold accuracy + staple position. |
+| **Hard stock cover** (cover stock pulled from a different tray) | `C3070 Booklet` queue → driver: Cover tab → Front cover from Tray N (cover stock), Back cover from Tray N | Load 100lb-cover-uncoated in T5, mark loaded in app, configure queue's Cover tab to pull front+back covers from T5. Resubmit booklet, qty=1. Cover sheet should be the cover stock, inner sheets the text stock. |
+| **Corner staple** (single-staple stapler) | `C3070 Stapled` queue + driver: Staple=ON, 1-corner upper-left | Submit any multi-page PDF as `stapled_plain_letter`, qty=1. Expect output to come out stapled in the upper-left corner. |
+| **3-hole punch** | `C3070 Punched` queue + driver: Punch=ON, 3-hole, left edge | Submit multi-page PDF as `punched_plain_letter`, qty=1. Expect output with 3 holes along the left edge. |
+| **8.5×11 booklet on 12×18** (with trim) | Same as auto-fold above + Graphic Wizard 4908 manual trim pass | Submit a PDF with proper bleed as `booklet_8.5x11_12x18`. Press folds, operator trims head/foot/face on the Graphic Wizard. Verify trim marks survive and final size lands at 8.5×11. |
+
+### Pre-flight checklist before each Windows-side test
+1. Re-seat shop Ethernet — wired LAN was dropping earlier.
+2. Verify finisher hardware health post-brownout per CLAUDE.md hard rule #1. Konica tech needs to OK the BM-660 + stapler + punch unit BEFORE running them in quantity.
+3. Load the right paper in the right tray + mark in `/api/trays`.
+4. First print of any finisher: **quantity 1, supervised**.
+5. STOP button is always available in topbar if the finisher misbehaves.
+
+### Known caveats
+- Saddle imposition rounds source page count up to a multiple of 4. A 5-page source produces 8 booklet pages — last 3 are blank. Operator should be told if this isn't desired (consider adding a UI hint when source mod 4 != 0).
+- The default tile stock for `booklet_5.5x8.5_letter` is `80lb-gloss-text` which has `parent_sheet=12x18` in the catalog — mismatched against the letter-parent booklet preset. Either the tile default should change to a letter-parent stock (`60lb-offset-text` or `24lb-bond`) or the catalog should add an 80lb gloss text option with `parent_sheet=letter`. Operator currently has to pick the stock manually for this preset.
+- Tile defaults at v0.3.3 are all qty=1 (operator scales up). Confirm modal still fires at qty > 100.
