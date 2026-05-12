@@ -11,6 +11,7 @@ import io
 import json
 import secrets
 import shutil
+import sys
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -203,15 +204,26 @@ def run_job(
         # Plain path OR fallback when finishing requested but unavailable.
         if finishing_kind and not (queue_name and win_spooler.supported()):
             why = []
+            fix = ""
             if not win_spooler.supported():
-                why.append("Windows spooler only available on Windows")
+                why.append(f"running on {sys.platform}, not Windows")
+                fix = (
+                    " To auto-fold/staple/punch: open this job in the Windows app "
+                    "at the shop — finisher commands only route through the Konica "
+                    "driver, which only exists on Windows."
+                )
             elif not queue_name:
-                why.append(f"no printer queue configured for '{finishing_kind}'")
+                why.append(f"no Windows print queue mapped for '{finishing_kind}'")
+                fix = (
+                    " Fix: Settings → Printer Queues → set the queue name for "
+                    f"'{finishing_kind}'. Run docs/setup-c3070-queues.ps1 first "
+                    "if the queue doesn't exist on this Windows PC."
+                )
             job.findings.append({
                 "severity": "warn", "code": "finisher-unavailable",
                 "message": (
-                    f"Finisher engagement skipped ({'; '.join(why)}). "
-                    "Press imaged correctly — fold/staple/punch by hand."
+                    f"FOLD/STAPLE/PUNCH SKIPPED — sheet printed flat "
+                    f"({'; '.join(why)})." + fix
                 ),
                 "page": None,
             })

@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { formatMoney } from "../auto-detect";
 import { useStore } from "../store";
-import type { Job } from "../types";
+import type { Finding, Job } from "../types";
+import { PreflightFindings } from "./PreflightFindings";
 
 export function ImposedPreview() {
   const stage = useStore((s) => s.stage);
@@ -28,6 +29,13 @@ export function ImposedPreview() {
     }
   }
 
+  // Split findings: the finisher-unavailable warning gets promoted into a
+  // loud banner above the preview because it's load-bearing — the operator
+  // walks to the press expecting fold/staple/punch and won't get it. The
+  // rest of the findings render in the standard list below.
+  const finisherSkipped = job.findings.find((f: Finding) => f.code === "finisher-unavailable");
+  const otherFindings = job.findings.filter((f: Finding) => f.code !== "finisher-unavailable");
+
   return (
     <div>
       <div className="section-head">
@@ -39,6 +47,8 @@ export function ImposedPreview() {
           job <code>{job.job_id}</code> · {formatMoney(job.total_cost)}
         </span>
       </div>
+
+      {finisherSkipped && <FinisherSkippedBanner finding={finisherSkipped} />}
 
       <div className="preview-shell">
         {job.imposed_path ? (
@@ -67,7 +77,48 @@ export function ImposedPreview() {
         )}
       </div>
 
+      {otherFindings.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <PreflightFindings findings={otherFindings} />
+        </div>
+      )}
+
       <DryReminder status={job.status} />
+    </div>
+  );
+}
+
+// Loud banner shown on the done screen when a fold/staple/punch tile was
+// clicked but the finisher didn't engage. The default "small warn row" in
+// the findings list was too easy to miss — operators walked to the press
+// expecting folded brochures and got flat sheets. This banner spells out
+// (a) what didn't happen, (b) why, (c) what to do.
+function FinisherSkippedBanner({ finding }: { finding: Finding }) {
+  return (
+    <div
+      role="alert"
+      className="finisher-skipped-banner"
+      style={{
+        margin: "12px 0 18px",
+        padding: "14px 18px",
+        background: "linear-gradient(90deg, #4a2a08, #6b3b10, #4a2a08)",
+        color: "#ffd99e",
+        border: "2px solid #ffb454",
+        borderRadius: 8,
+        display: "flex",
+        gap: 14,
+        alignItems: "flex-start",
+        fontSize: 14,
+        lineHeight: 1.5,
+      }}
+    >
+      <span style={{ fontSize: 24, lineHeight: 1, paddingTop: 2 }}>⚠️</span>
+      <div style={{ flex: 1 }}>
+        <strong style={{ color: "#ffb454", fontSize: 15, letterSpacing: 0.3 }}>
+          FOLD / STAPLE / PUNCH DID NOT FIRE
+        </strong>
+        <div style={{ marginTop: 6 }}>{finding.message}</div>
+      </div>
     </div>
   );
 }

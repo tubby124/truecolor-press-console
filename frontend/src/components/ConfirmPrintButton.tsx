@@ -154,6 +154,15 @@ export function ConfirmPrintButton() {
           ? `Spooled (DRY): ${job.sheets} sheet${job.sheets !== 1 ? "s" : ""}`
           : `Sent to press: ${job.sheets} sheet${job.sheets !== 1 ? "s" : ""}`
       );
+      // If a finishing tile was clicked but the finisher didn't actually
+      // engage (Mac console, missing queue, etc.), surface it loudly so the
+      // operator doesn't walk to the press expecting folded brochures.
+      if (job.findings.some((f) => f.code === "finisher-unavailable")) {
+        pushToast(
+          "warn",
+          "Finisher SKIPPED — sheet printed flat. See banner on the done screen.",
+        );
+      }
     } catch (e) {
       pushToast("error", `Submit failed: ${e instanceof Error ? e.message : e}`);
       setStage(stage);

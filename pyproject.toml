@@ -1,6 +1,6 @@
 [project]
 name = "truecolor-press-console"
-version = "0.3.3"
+version = "0.3.4"
 # When bumping: also update backend/version.py __version__ to match. The
 # OTA updater compares against `backend.version.__version__`, not pyproject.
 description = "Local web app + tray launcher for the shop's Konica AccurioPress C3070"
