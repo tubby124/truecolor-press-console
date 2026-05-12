@@ -126,7 +126,7 @@ export const api = {
       }
     ),
 
-  inspect: (file: File, quantityGuess = 100) => {
+  inspect: (file: File, quantityGuess = 1) => {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("quantity_guess", String(quantityGuess));
@@ -206,6 +206,13 @@ export const api = {
   reprint: (id: string) => request<Job>(`/api/job/${id}/reprint`, { method: "POST" }),
   cancelSpool: (id: string) =>
     request<CancelSpoolResult>(`/api/job/${id}/cancel-spool`, { method: "POST" }),
+  stop: () =>
+    request<{
+      cancelled_jobs: string[];
+      failed_jobs: { job_id: string; error: string }[];
+      printer: { sent: boolean; reason?: string; error?: string; host?: string };
+      spool: { supported: boolean; purged: string[]; errors: string[] };
+    }>("/api/stop", { method: "POST" }),
 
   // ─── Test patterns (calibration PDFs for tech visit + first prints) ───
   testPatterns: () => request<TestPattern[]>("/api/test-patterns"),

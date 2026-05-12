@@ -97,6 +97,29 @@ def submit(pdl_body: bytes, opts: PrintOptions, language: str = "POSTSCRIPT") ->
     return {"mode": "live", "spool": str(spool), "bytes": len(bundle), "sent": True}
 
 
+def cancel_active_job(host: str | None = None, timeout: float = 5.0) -> dict:
+    """Best-effort abort of whatever the press is currently printing.
+
+    Sends ``@PJL JOB CANCEL`` wrapped in UEL escapes. The C3070 may or may not
+    honour the cancel on a job that's already half-way through the engine —
+    sheets already past the imaging unit will still come out — but the
+    pending pages get dropped and the press returns to ready. Always returns
+    a dict; never raises (this is a kill switch, callers can't afford it to
+    blow up). In dry mode we don't open the socket at all.
+    """
+    h = host or settings.printer_host
+    if settings.safe_print_mode != "live":
+        return {"sent": False, "reason": "dry mode — no socket opened"}
+    payload = UEL + b"@PJL JOB CANCEL\r\n" + UEL
+    try:
+        with socket.create_connection((h, settings.printer_raw_port), timeout=timeout) as s:
+            s.sendall(payload)
+            s.shutdown(socket.SHUT_WR)
+        return {"sent": True, "host": h}
+    except OSError as e:
+        return {"sent": False, "error": str(e), "host": h}
+
+
 def probe_status(host: str | None = None, timeout: float = 6.0) -> dict:
     """Send a PJL INFO STATUS query and return parsed response. Read-only."""
     h = host or settings.printer_host

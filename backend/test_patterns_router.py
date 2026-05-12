@@ -52,9 +52,9 @@ ASSETS_DIR = settings.repo_root / "assets" / "test-patterns"
 #   - what the pattern is for, so operators don't have to remember
 #
 # Recommended presets are chosen so each pattern matches a stocked paper:
-#   - color-blocks-letter   -> 100lb gloss cover (poster_letter preset @ letter sheet)
-#   - registration-target   -> 80lb gloss cover (poster_11x17 preset on 12x18-friendly stock)
-#   - density-bar-letter    -> 100lb gloss text (poster_letter preset)
+#   - color-blocks-letter   -> 100lb gloss cover (poster_1up_letter preset @ letter sheet)
+#   - registration-target   -> 80lb gloss cover (poster_1up_11x17 preset on 12x18-friendly stock)
+#   - density-bar-letter    -> 100lb gloss text (poster_1up_letter preset)
 #
 # `recommended_stock` is a stock code that exists in catalog.shop_stocks();
 # the frontend can show its friendly name alongside the pattern label.
@@ -72,7 +72,7 @@ PATTERNS: dict[str, dict] = {
             "banding."
         ),
         "recommended_stock": "100lb-gloss-text",
-        "recommended_preset": "poster_letter",
+        "recommended_preset": "poster_1up_letter",
         "sheet": "letter",
     },
     "registration-target-12x18": {
@@ -88,7 +88,7 @@ PATTERNS: dict[str, dict] = {
             "channel offset."
         ),
         "recommended_stock": "14pt-cs-gloss",
-        "recommended_preset": "poster_11x17",
+        "recommended_preset": "poster_1up_11x17",
         "sheet": "12x18",
     },
     "density-bar-letter": {
@@ -103,7 +103,7 @@ PATTERNS: dict[str, dict] = {
             "five clearly distinct values."
         ),
         "recommended_stock": "100lb-gloss-text",
-        "recommended_preset": "poster_letter",
+        "recommended_preset": "poster_1up_letter",
         "sheet": "letter",
     },
 }

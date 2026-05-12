@@ -44,7 +44,7 @@ export function DropZone() {
         setStage({
           kind: "batch_pending",
           files: valid,
-          quantity: 100,
+          quantity: 1,
           sides: 1,
           stockCode: "14pt-cs-gloss",
           presetKey: "bc_21up_12x18",
@@ -61,7 +61,7 @@ export function DropZone() {
       delete document.body.dataset.savedPresetJson;
 
       try {
-        const result = await api.inspect(file, 100);
+        const result = await api.inspect(file, 1);
         let stockCode = result.detected?.stock_code ?? "14pt-cs-gloss";
         let presetKey = result.detected?.preset_key ?? "bc_21up_12x18";
         let quantity = result.suggested_quantity;

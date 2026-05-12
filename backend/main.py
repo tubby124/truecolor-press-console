@@ -691,6 +691,51 @@ def admin_purge_jobs(
     return jobs.purge_old_jobs(days=days)
 
 
+@app.post("/api/stop")
+def emergency_stop(user: str = Depends(auth.current_user)):
+    """Big red button. Stop printing across every layer we can reach:
+
+    1. Any job folder still in ``pending`` / ``spooled-dry`` is deleted (these
+       haven't been physically pushed yet — safe to drop without contacting
+       the press).
+    2. PJL ``JOB CANCEL`` is sent to the C3070 — best effort; the press may
+       still feed a sheet that's already past the imaging unit.
+    3. On Windows: every configured queue is purged via PowerShell
+       ``Remove-PrintJob`` so anything sitting in the spooler is dropped.
+
+    Every layer is best-effort and never raises. Frontend renders the
+    per-layer result so the operator can see what actually got stopped.
+    """
+    cancelled_jobs: list[str] = []
+    failed_jobs: list[dict] = []
+    cancellable = {"pending", "spooled-dry"}
+    for job_dir in settings.jobs_dir.glob("2*"):
+        if not job_dir.is_dir():
+            continue
+        job_file = job_dir / "job.json"
+        if not job_file.exists():
+            continue
+        try:
+            data = json.loads(job_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if (data.get("status") or "").lower() not in cancellable:
+            continue
+        try:
+            shutil.rmtree(job_dir)
+            cancelled_jobs.append(job_dir.name)
+        except OSError as e:
+            failed_jobs.append({"job_id": job_dir.name, "error": str(e)})
+    printer_result = printer.cancel_active_job()
+    spool_result = win_spooler.purge_all_queues()
+    return {
+        "cancelled_jobs": cancelled_jobs,
+        "failed_jobs": failed_jobs,
+        "printer": printer_result,
+        "spool": spool_result,
+    }
+
+
 @app.post("/api/job/{job_id}/cancel-spool")
 def cancel_spool(job_id: str, user: str = Depends(auth.current_user)):
     """Cancel a just-submitted job within the 5-second post-submit window.

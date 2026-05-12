@@ -168,3 +168,36 @@ def print_via_spooler(pdf_path: Path, queue_name: str, copies: int = 1) -> Spool
             stdout=proc.stdout,
         )
     return SpoolResult(ok=True, queue=queue_name, pdf=str(pdf_path), stdout=proc.stdout)
+
+
+def purge_all_queues() -> dict:
+    """Kill switch: drop all pending jobs from every configured Windows queue
+    (booklet / stapled / punched) plus the hardcoded "C3070 Plain" fallback.
+
+    PowerShell ``Remove-PrintJob`` is the only stable cmdline way to clear a
+    spool — there's no equivalent on Mac because the spooler bridge itself
+    doesn't run there. No-op + ``supported: False`` outside Windows.
+
+    Never raises; collects per-queue results in the returned dict so callers
+    can surface partial failures without aborting the broader stop sequence.
+    """
+    if not supported():
+        return {"supported": False, "purged": [], "errors": []}
+    queue_names = set(load_queues().values())
+    queue_names.add("C3070 Plain")
+    purged: list[str] = []
+    errors: list[str] = []
+    for q in sorted(n for n in queue_names if n):
+        cmd = (
+            "powershell", "-NoProfile", "-NonInteractive", "-Command",
+            f"Get-PrintJob -PrinterName '{q}' -ErrorAction SilentlyContinue | Remove-PrintJob",
+        )
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            if proc.returncode == 0:
+                purged.append(q)
+            else:
+                errors.append(f"{q}: {(proc.stderr or proc.stdout).strip()[:200]}")
+        except (OSError, subprocess.TimeoutExpired) as e:
+            errors.append(f"{q}: {e}")
+    return {"supported": True, "purged": purged, "errors": errors}

@@ -61,9 +61,20 @@ export const useStore = create<Store>((set) => ({
   pushToast: (level, text) =>
     set((state) => {
       const id = ++toastCounter;
-      setTimeout(() => {
-        useStore.getState().dismissToast(id);
-      }, 4500);
+      // Errors persist until the operator dismisses them — the previous 4.5s
+      // auto-dismiss meant real failures (e.g. preset mismatches, preflight
+      // blocks) disappeared before anyone read them. Warn gets a longer
+      // window than success/info for the same reason.
+      const ttl =
+        level === "error" ? 0
+        : level === "warn" ? 8000
+        : level === "success" ? 4500
+        : 3000;
+      if (ttl > 0) {
+        setTimeout(() => {
+          useStore.getState().dismissToast(id);
+        }, ttl);
+      }
       return { toasts: [...state.toasts, { id, level, text }] };
     }),
   dismissToast: (id) =>

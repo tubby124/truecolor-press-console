@@ -13,6 +13,7 @@ import { PressLiveStatus } from "./components/PressLiveStatus";
 import { PrinterQueuesPanel } from "./components/PrinterQueuesPanel";
 import { SavedPresets } from "./components/SavedPresets";
 import { ScanInbox } from "./components/ScanInbox";
+import { StopButton } from "./components/StopButton";
 import { TestPatternTile } from "./components/TestPatternTile";
 import { Toasts } from "./components/Toasts";
 import { TrayStatusBar } from "./components/TrayStatusBar";
@@ -162,6 +163,7 @@ export default function App() {
         )}
         <span className="grow" />
         <PressLiveStatus />
+        <StopButton />
         <button
           className="ghost"
           type="button"
