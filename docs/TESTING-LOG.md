@@ -1,5 +1,51 @@
 # C3070 Finishing Testing Log
 
+---
+
+## 2026-05-11 (Windows TC1 — late-night supervised tests)
+
+### Setup applied via SSH (no GUI clicks)
+- TrueColorPress v0.3.3 → v0.3.5 deployed to `C:\TrueColorPress\`
+- 6 print queues: Plain, Booklet, Stapled, Punched, Trifold, Halffold (all on `172.16.1.149_1:9100`)
+- PrintTicket defaults set via `docs/apply-konica-finishing.ps1` (PrintTicket XML mutation)
+- `Config:KOOpSaddleUnit = SD-510` declared on all queues (changes some driver behavior — see results)
+
+### Confirmed working ✅
+- **Plain print** — every tile that doesn't need a finisher (BC, postcards, flyers, posters)
+- **Corner stapler** — multi-sheet jobs come out with 1 upper-left corner staple at stapler main tray. Confirmed with 3+5 sheet jobs.
+- **3-hole punch** — multi-sheet jobs come out with 3 holes left edge at stapler main tray.
+- **Stapler + punch combo** — both engage on the same multi-sheet job.
+
+### Hardware-blocked ❌
+- **Saddle booklet on letter** (BM-660/SD-510 won't fold sheets below 11×17 on this press). Tested multiple combos: Layout+Fold+Stitch, Fold-only, with/without SD-510 declared. Press either demands 11×17 (refuses to print letter) or prints flat (fold mechanism doesn't engage).
+- **Half-fold on letter** — same hardware constraint. Flat output.
+- **Tri-fold on letter** — cancelled before test, same hardware constraint expected.
+
+### Untested (likely working with right paper) ⏳
+- **Booklet 8.5×11 from 12×18** — preset `booklet_8.5x11_12x18`. Hardware supports 12×18 saddle. Need test PDF with proper bleed.
+- **Booklet 8.5×11 from 11×17** — preset `booklet_8.5x11_11x17`. No 11×17 currently loaded; need to load.
+- **Bi-fold brochure on 11×17** — same as above, needs 11×17 input.
+
+### Key technical findings
+1. **SumatraPDF does honor queue PrintTicket defaults** (confirmed by working stapler test). Earlier loose-output result was a Mac job sneaking in. **Production path uses SumatraPDF → C3070 queue with finishing baked in.**
+2. **`Config:KOOpSaddleUnit = SD-510`** changes driver behavior for saddle (no longer demands 11×17 for letter input in some configs). But press hardware still refuses to fold letter, so the actual fold/stitch doesn't engage.
+3. **PJL INFO CONFIG reports output bins:** `Stapler MAIN TRAY`, `Stapler SUB TRAY`, `Stapler FOLD TRAY`, `Relay Unit 3 TRAY`. The "FOLD TRAY" is the LS-506 + SD-510 saddle output — present but minimum-size-gated.
+4. **`Config:KOOp*` properties** mostly take "Plugin" as default; SD-510 was the one real model code accepted for SaddleUnit. Others rejected all attempts — likely auto-discover at print time.
+
+### v0.3.5 changes (this session)
+- Tile catalog gained `tip`, `finisher`, `status`, `statusNote` fields per tile.
+- WorkflowTiles renders status pills (✓ Confirmed / ⚠ Manual finish / ✗ Blocked / ? Untested) + finisher action summary + `?` info button per tile.
+- Operators now see at a glance which workflows the press will auto-finish vs which need manual finish, with hardware notes when relevant.
+
+### Next-session priorities
+1. **Test booklet_8.5×11_12x18 with proper bleed PDF** — most-likely-working production booklet path.
+2. **Load 11×17 in a tray + test bifold + booklet_8.5×11_11x17**.
+3. **Konica tech consult** if 12×18 booklet still doesn't fold — confirm SD-510 actually installed + whether FD-503 fold unit is on the press.
+4. **UI: per-job finisher option selection** (staple left vs right vs 2-staple, punch 2/3/4 hole) — needs either more Windows queues OR per-job PrintTicket overrides.
+
+---
+
+
 Tracks what's been verified end-to-end against the physical press vs. what's
 still pending Windows-side setup. Add a new dated block every test session.
 
