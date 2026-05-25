@@ -364,6 +364,33 @@ def _add_booklet_marks(
             target_page.obj[Name.Contents] = pikepdf.Array([existing_contents, marks_stream])
 
 
+def _booklet_spread_geometry(
+    sheet: SheetSpec, pw: float, ph: float, bleed: float
+) -> tuple[float, float, Rectangle, Rectangle]:
+    """Trim origin (ox, oy) of the centered 2-up spread plus the per-page
+    *placement* rects.
+
+    Each page is placed at BLEED size — (pw + 2·bleed) × (ph + 2·bleed) — so a
+    full-bleed source (MediaBox = trim + bleed) maps 1:1 and its background
+    extends past the trim/cut line on the three outer edges and across the
+    spine. Crop marks are still drawn at the trim corners (ox, oy, pw, ph), so
+    the operator's cut lands on trim and the bleed gets trimmed off cleanly —
+    no white slivers.
+
+    The previous code placed pages into trim-sized rects, which made
+    add_overlay scale the bleed artwork ~3% DOWN to fit and left zero bleed
+    past the cut line. With bleed=0 (fold-only presets) the rects collapse
+    back to the exact trim rects, so those presets are unchanged.
+    """
+    spread_w = 2 * pw
+    spread_h = ph
+    ox = (sheet.width_pt - spread_w) / 2
+    oy = (sheet.height_pt - spread_h) / 2
+    left_rect = Rectangle(ox - bleed, oy - bleed, ox + pw + bleed, oy + ph + bleed)
+    right_rect = Rectangle(ox + pw - bleed, oy - bleed, ox + 2 * pw + bleed, oy + ph + bleed)
+    return ox, oy, left_rect, right_rect
+
+
 def impose_booklet(
     artwork_pdf: Path,
     *,
@@ -401,16 +428,9 @@ def impose_booklet(
     sheet = preset.sheet
     pw = inches(preset.page_w_in)
     ph = inches(preset.page_h_in)
+    bleed = inches(preset.bleed_in)
 
-    # Center the spread (2pw × ph) on the sheet. Bleed area is sheet margin
-    # around the spread; operator's pre-extended artwork extends into it.
-    spread_w = 2 * pw
-    spread_h = ph
-    ox = (sheet.width_pt - spread_w) / 2
-    oy = (sheet.height_pt - spread_h) / 2
-
-    left_rect = Rectangle(ox, oy, ox + pw, oy + ph)
-    right_rect = Rectangle(ox + pw, oy, ox + 2 * pw, oy + ph)
+    ox, oy, left_rect, right_rect = _booklet_spread_geometry(sheet, pw, ph, bleed)
 
     out = pikepdf.new()
     pairs = saddle_stitch_pairs(page_count)

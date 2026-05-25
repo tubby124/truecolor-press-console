@@ -214,3 +214,36 @@ def test_is_booklet_preset_helper():
     assert impose.is_booklet_preset("booklet_5.5x8.5_letter") is True
     assert impose.is_booklet_preset("bc_21up_12x18") is False
     assert impose.is_booklet_preset("nonexistent") is False
+
+
+# ───────────────────── bleed geometry (regression) ─────────────────────
+
+
+def test_booklet_geometry_places_pages_at_bleed_size():
+    """Bleed preset must place each page at BLEED size (1:1), not trim size.
+
+    Regression for the bug where full-bleed artwork (MediaBox = trim + bleed)
+    was scaled ~3% DOWN into a trim-sized rect, leaving zero bleed past the
+    cut line -> white slivers after trimming.
+    """
+    sheet = impose.SHEETS["18x12"]
+    pw, ph, bleed = impose.inches(8.5), impose.inches(11.0), impose.inches(0.125)
+    ox, oy, left, right = impose._booklet_spread_geometry(sheet, pw, ph, bleed)
+
+    # Each placement rect == source MediaBox size (trim + 2*bleed) -> scale 1.0.
+    assert left.urx - left.llx == pytest.approx(pw + 2 * bleed)
+    assert left.ury - left.lly == pytest.approx(ph + 2 * bleed)
+    # Trim corner (where crop marks land) sits one bleed inside the rect.
+    assert left.llx + bleed == pytest.approx(ox)
+    assert left.lly + bleed == pytest.approx(oy)
+    # Pages overlap across the spine by 2*bleed (bleed carries over the fold).
+    assert left.urx - right.llx == pytest.approx(2 * bleed)
+
+
+def test_booklet_geometry_no_bleed_collapses_to_trim():
+    """Fold-only presets (bleed=0) must be unchanged: rects == exact trim."""
+    sheet = impose.SHEETS["letter-l"]
+    pw, ph = impose.inches(5.5), impose.inches(8.5)
+    ox, oy, left, right = impose._booklet_spread_geometry(sheet, pw, ph, 0.0)
+    assert (left.llx, left.lly, left.urx, left.ury) == pytest.approx((ox, oy, ox + pw, oy + ph))
+    assert (right.llx, right.lly, right.urx, right.ury) == pytest.approx((ox + pw, oy, ox + 2 * pw, oy + ph))
