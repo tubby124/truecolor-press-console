@@ -375,7 +375,11 @@ def main() -> None:
     ).start()
 
     # Foreground: tray on Windows-frozen, otherwise just block on the server.
-    if is_frozen_windows():
+    # PRESS_NO_TRAY=1 forces the headless server-blocking path. Used by the CI
+    # boot smoke-test, which runs the frozen .exe on a runner with no
+    # interactive desktop / system tray and just needs the server alive to poll.
+    no_tray = os.environ.get("PRESS_NO_TRAY") == "1"
+    if is_frozen_windows() and not no_tray:
         try:
             run_tray_blocking(browser_url, log_dir)
             return  # Quit picked from tray
