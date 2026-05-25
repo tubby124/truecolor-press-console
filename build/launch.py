@@ -334,7 +334,12 @@ def main() -> None:
     # ever need LAN access from other shop computers.
     host = os.environ.get("PRESS_BIND_HOST", "127.0.0.1")
     port = int(os.environ.get("PRESS_BIND_PORT", str(settings.bind_port)))
-    browser_url = f"http://localhost:{port}"
+    # Use 127.0.0.1 literally, NOT "localhost". The server binds IPv4
+    # 127.0.0.1; on Windows "localhost" often resolves to ::1 (IPv6) first,
+    # so the health poll + browser open would hit a dead ::1:5273 and show a
+    # blank page even when the server is perfectly healthy. Matching the bind
+    # address exactly removes that resolver footgun.
+    browser_url = f"http://127.0.0.1:{port}"
 
     def _run_uvicorn() -> None:
         # Catch + log everything. Without this an import error inside
